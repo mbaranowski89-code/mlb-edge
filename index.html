@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MLB Edge Analyzer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #060b14;
+      color: #f9fafb;
+      font-family: 'Courier New', monospace;
+      min-height: 100vh;
+    }
+
+    input {
+      background: #060b14;
+      border: 1px solid #1a2332;
+      border-radius: 4px;
+      color: #e5e7eb;
+      padding: 6px 9px;
+      font-size: 12px;
+      font-family: 'Courier New', monospace;
+      outline: none;
+      width: 100%;
+    }
+    input:focus { border-color: #374151; }
+    input.fd-filled { color: #93c5fd; }
+    input.dk-filled { color: #86efac; }
+
+    button {
+      font-family: 'Courier New', monospace;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      font-weight: 800;
+      font-size: 10px;
+      letter-spacing: 1px;
+      padding: 7px 14px;
+    }
+
+    /* ── Header ── */
+    #header {
+      border-bottom: 1px solid #1a2332;
+      padding: 16px 28px;
+    }
+    #header-inner {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    #logo { font-size: 18px; font-weight: 800; letter-spacing: 2px; color: #f9fafb; }
+    #logo-sub { font-size: 9px; color: #22c55e; letter-spacing: 3px; margin-left: 8px; }
+    #today-label { color: #1f2937; font-size: 9px; margin-top: 2px; letter-spacing: 1px; }
+    #btn-area { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+    #fetch-status {
+      font-size: 10px;
+      letter-spacing: 1px;
+      display: none;
+    }
+    #req-remaining {
+      color: #374151;
+      font-size: 9px;
+      display: none;
+    }
+
+    #btn-fetch  { background: #22c55e; color: #000; }
+    #btn-fetch:disabled { background: #0d1117; color: #374151; cursor: not-allowed; }
+    #btn-add    { background: none; color: #374151; border: 1px solid #1a2332; }
+    #btn-clear  { background: none; color: #374151; border: 1px solid #1a2332; }
+    #clear-confirm { display: none; align-items: center; gap: 5px; }
+    #clear-confirm span { color: #f87171; font-size: 9px; }
+    #btn-confirm-yes { background: #7f1d1d; color: #f87171; border: 1px solid #ef444444; padding: 5px 10px; }
+    #btn-confirm-no  { background: none; color: #374151; border: 1px solid #1a2332; padding: 5px 10px; }
+
+    /* ── Main ── */
+    #main { max-width: 900px; margin: 0 auto; padding: 24px 28px; }
+
+    /* ── Summary table ── */
+    #summary-wrap {
+      background: #080e1a;
+      border: 1px solid #1a2332;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 32px;
+      display: none;
+    }
+    #summary-header {
+      padding: 13px 16px 10px;
+      border-bottom: 1px solid #0f1829;
+      color: #374151;
+      font-size: 10px;
+      letter-spacing: 2px;
+    }
+    #summary-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    #summary-table th {
+      color: #374151;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      padding: 9px 14px;
+      text-align: left;
+      border-bottom: 1px solid #1a2332;
+      background: #060b14;
+    }
+    #summary-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid #0d1420;
+    }
+
+    /* ── Divider ── */
+    .section-divider {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .section-divider span { color: #1f2937; font-size: 9px; letter-spacing: 2px; white-space: nowrap; }
+    .section-divider .line { flex: 1; height: 1px; background: #1a2332; }
+    .section-divider .autosave { color: #1a2332; font-size: 9px; white-space: nowrap; }
+
+    /* ── Game card ── */
+    .game-card {
+      background: #080e1a;
+      border: 1px solid #1a2332;
+      border-radius: 8px;
+      padding: 13px 14px;
+      margin-bottom: 8px;
+    }
+    .team-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .team-row .at-sign { color: #1f2937; font-weight: 700; padding-bottom: 6px; font-size: 14px; }
+    .team-col { flex: 1; }
+    .field-label {
+      font-size: 9px;
+      letter-spacing: 1.5px;
+      margin-bottom: 3px;
+      display: block;
+    }
+    .label-espn { color: #f97316; }
+    .label-fd   { color: #3b82f6; }
+    .label-dk   { color: #22c55e; }
+    .label-gray { color: #374151; }
+
+    .input-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 7px;
+      margin-bottom: 10px;
+    }
+
+    .btn-remove {
+      background: none;
+      border: none;
+      color: #1f2937;
+      cursor: pointer;
+      font-size: 15px;
+      padding: 0 0 5px 4px;
+      font-weight: normal;
+      letter-spacing: 0;
+    }
+
+    /* ── Edge panel ── */
+    .edge-panel {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+    .edge-cell {
+      background: #060b14;
+      border: 1px solid #1a2332;
+      border-radius: 5px;
+      padding: 6px 9px;
+    }
+    .edge-cell-label { color: #6b7280; font-size: 10px; font-weight: 700; margin-bottom: 4px; }
+    .edge-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+    .edge-row:last-child { margin-bottom: 0; }
+    .book-tag { font-size: 9px; }
+    .book-tag-fd { color: #1d4ed8; }
+    .book-tag-dk { color: #15803d; }
+
+    /* ── Edge pill ── */
+    .edge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border-radius: 3px;
+      padding: 2px 8px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+    .edge-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* Edge tiers */
+    .tier-none  { background: #7f1d1d18; border: 1px solid #ef444444; }
+    .tier-none  .edge-dot { background: #ef4444; box-shadow: 0 0 5px #ef4444; }
+    .tier-none  .edge-text { color: #f87171; }
+    .tier-none  .summary-bar { border-left-color: #ef4444; }
+
+    .tier-marg  { background: #78350f18; border: 1px solid #f59e0b44; }
+    .tier-marg  .edge-dot { background: #f59e0b; box-shadow: 0 0 5px #f59e0b; }
+    .tier-marg  .edge-text { color: #fbbf24; }
+
+    .tier-good  { background: #14532d18; border: 1px solid #22c55e44; }
+    .tier-good  .edge-dot { background: #22c55e; box-shadow: 0 0 5px #22c55e; }
+    .tier-good  .edge-text { color: #4ade80; }
+
+    .tier-strong { background: #0c4a6e18; border: 1px solid #38bdf844; }
+    .tier-strong .edge-dot { background: #38bdf8; box-shadow: 0 0 5px #38bdf8; }
+    .tier-strong .edge-text { color: #7dd3fc; }
+
+    /* Summary row left border colors */
+    .sl-none   { border-left: 2px solid #ef4444; }
+    .sl-marg   { border-left: 2px solid #f59e0b; }
+    .sl-good   { border-left: 2px solid #22c55e; }
+    .sl-strong { border-left: 2px solid #38bdf8; }
+
+    /* ── Add game button ── */
+    #btn-add-bottom {
+      width: 100%;
+      background: none;
+      border: 1px dashed #1a2332;
+      color: #1f2937;
+      border-radius: 6px;
+      padding: 10px;
+      cursor: pointer;
+      font-size: 10px;
+      letter-spacing: 2px;
+      margin-top: 6px;
+      font-weight: 600;
+    }
+
+    @media (max-width: 600px) {
+      #header { padding: 12px 16px; }
+      #main { padding: 16px; }
+      .input-grid { grid-template-columns: 1fr 1fr; }
+      .edge-panel { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="header">
+  <div id="header-inner">
+    <div>
+      <div>
+        <span id="logo">MLB EDGE</span>
+        <span id="logo-sub">ANALYZER</span>
+      </div>
+      <div id="today-label"></div>
+    </div>
+    <div id="btn-area">
+      <span id="fetch-status"></span>
+      <span id="req-remaining"></span>
+      <button id="btn-fetch">⚡ FETCH ODDS</button>
+      <button id="btn-add">+ ADD GAME</button>
+      <button id="btn-clear">✕ CLEAR</button>
+      <div id="clear-confirm">
+        <span>CONFIRM?</span>
+        <button id="btn-confirm-yes">YES</button>
+        <button id="btn-confirm-no">NO</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- Summary -->
+  <div id="summary-wrap">
+    <div id="summary-header">TODAY'S EDGE SUMMARY</div>
+    <table id="summary-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>TEAM</th>
+          <th>MATCHUP</th>
+          <th>ESPN</th>
+          <th>BOOK</th>
+          <th>ODDS</th>
+          <th>EDGE</th>
+        </tr>
+      </thead>
+      <tbody id="summary-body"></tbody>
+    </table>
+  </div>
+
+  <!-- Divider -->
+  <div class="section-divider">
+    <span>GAME DATA · ESPN % REQUIRED FOR EDGE</span>
+    <div class="line"></div>
+    <span class="autosave">AUTO-SAVED</span>
+  </div>
+
+  <!-- Game cards container -->
+  <div id="cards-container"></div>
+
+  <button id="btn-add-bottom">+ ADD GAME</button>
+</div>
+
+<script>
+// ── Constants ──────────────────────────────────────────────────────────────
+const STORAGE_KEY = "mlb-edge-games";
+const ODDS_API_KEY = "803403e631dec7840e8157415bb61979";
+const BOOKMAKERS = "fanduel,draftkings";
+
+const TEAM_ABBR = {
+  "Arizona Diamondbacks":"ARI","Atlanta Braves":"ATL","Baltimore Orioles":"BAL",
+  "Boston Red Sox":"BOS","Chicago Cubs":"CHC","Chicago White Sox":"CWS",
+  "Cincinnati Reds":"CIN","Cleveland Guardians":"CLE","Colorado Rockies":"COL",
+  "Detroit Tigers":"DET","Houston Astros":"HOU","Kansas City Royals":"KC",
+  "Los Angeles Angels":"LAA","Los Angeles Dodgers":"LAD","Miami Marlins":"MIA",
+  "Milwaukee Brewers":"MIL","Minnesota Twins":"MIN","New York Mets":"NYM",
+  "New York Yankees":"NYY","Oakland Athletics":"OAK","Philadelphia Phillies":"PHI",
+  "Pittsburgh Pirates":"PIT","San Diego Padres":"SD","San Francisco Giants":"SF",
+  "Seattle Mariners":"SEA","St. Louis Cardinals":"STL","Tampa Bay Rays":"TB",
+  "Texas Rangers":"TEX","Toronto Blue Jays":"TOR","Washington Nationals":"WSH",
+  "Athletics":"OAK",
+};
+
+function teamAbbr(name) {
+  return TEAM_ABBR[name] || name.split(" ").pop().slice(0,3).toUpperCase();
+}
+
+// ── Math ───────────────────────────────────────────────────────────────────
+function americanToImplied(odds) {
+  const o = parseFloat(odds);
+  if (isNaN(o)) return null;
+  return o > 0 ? 100 / (o + 100) : Math.abs(o) / (Math.abs(o) + 100);
+}
+
+function removeVig(i1, i2) {
+  const t = i1 + i2;
+  return { f1: i1/t, f2: i2/t };
+}
+
+function edgeTier(edge) {
+  const p = edge * 100;
+  if (p <= 0)   return { cls: "tier-none",   sl: "sl-none",   label: "NO EDGE",  bar: "#ef4444" };
+  if (p <= 2.5) return { cls: "tier-marg",   sl: "sl-marg",   label: "MARGINAL", bar: "#f59e0b" };
+  if (p <= 5)   return { cls: "tier-good",   sl: "sl-good",   label: "GOOD",     bar: "#22c55e" };
+  return              { cls: "tier-strong", sl: "sl-strong", label: "STRONG",   bar: "#38bdf8" };
+}
+
+function fmtOdds(v) {
+  const n = parseFloat(v);
+  if (isNaN(n)) return v;
+  return (n > 0 ? "+" : "") + n;
+}
+
+function pillHTML(edge) {
+  const t = edgeTier(edge);
+  const sign = edge > 0 ? "+" : "";
+  return `<span class="edge-pill ${t.cls}">
+    <span class="edge-dot"></span>
+    <span class="edge-text">${t.label} ${sign}${(edge*100).toFixed(1)}%</span>
+  </span>`;
+}
+
+// ── State ──────────────────────────────────────────────────────────────────
+let games = [];
+
+function emptyGame() {
+  return { id: Date.now() + Math.random(), awayTeam:"", homeTeam:"", espnAway:"", espnHome:"", fdAway:"", fdHome:"", dkAway:"", dkHome:"" };
+}
+
+function loadGames() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    return Array.isArray(p) && p.length > 0 ? p : null;
+  } catch { return null; }
+}
+
+function saveGames() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(games)); } catch {}
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function render() {
+  saveGames();
+  renderCards();
+  renderSummary();
+}
+
+function renderCards() {
+  const container = document.getElementById("cards-container");
+  container.innerHTML = "";
+  games.forEach(g => container.appendChild(buildCard(g)));
+}
+
+function buildCard(g) {
+  const card = document.createElement("div");
+  card.className = "game-card";
+  card.dataset.id = g.id;
+
+  // Compute edges
+  const fdIA = americanToImplied(g.fdAway), fdIH = americanToImplied(g.fdHome);
+  const dkIA = americanToImplied(g.dkAway), dkIH = americanToImplied(g.dkHome);
+  const fdFair = (fdIA && fdIH) ? removeVig(fdIA, fdIH) : null;
+  const dkFair = (dkIA && dkIH) ? removeVig(dkIA, dkIH) : null;
+  const espnA = parseFloat(g.espnAway) / 100 || null;
+  const espnH = parseFloat(g.espnHome) / 100 || null;
+  const fdEA = (espnA && fdFair) ? espnA - fdFair.f1 : null;
+  const fdEH = (espnH && fdFair) ? espnH - fdFair.f2 : null;
+  const dkEA = (espnA && dkFair) ? espnA - dkFair.f1 : null;
+  const dkEH = (espnH && dkFair) ? espnH - dkFair.f2 : null;
+  const hasEdge = fdEA !== null || dkEA !== null;
+
+  const edgePanelHTML = hasEdge ? `
+    <div class="edge-panel">
+      ${buildEdgeCell(g.awayTeam || "Away", fdEA, dkEA)}
+      ${buildEdgeCell(g.homeTeam || "Home", fdEH, dkEH)}
+    </div>` : "";
+
+  card.innerHTML = `
+    <div class="team-row">
+      <div class="team-col">
+        <span class="field-label label-gray">AWAY</span>
+        <input type="text" class="field" data-field="awayTeam" value="${esc(g.awayTeam)}" placeholder="NYY" />
+      </div>
+      <span class="at-sign">@</span>
+      <div class="team-col">
+        <span class="field-label label-gray">HOME</span>
+        <input type="text" class="field" data-field="homeTeam" value="${esc(g.homeTeam)}" placeholder="BOS" />
+      </div>
+      <button class="btn-remove" data-id="${g.id}">✕</button>
+    </div>
+    <div class="input-grid">
+      <div>
+        <span class="field-label label-espn">ESPN AWAY %</span>
+        <input type="text" class="field" data-field="espnAway" value="${esc(g.espnAway)}" placeholder="47" />
+      </div>
+      <div>
+        <span class="field-label label-fd">FD AWAY ML</span>
+        <input type="text" class="field ${g.fdAway ? 'fd-filled' : ''}" data-field="fdAway" value="${g.fdAway ? fmtOdds(g.fdAway) : ''}" placeholder="-140" />
+      </div>
+      <div>
+        <span class="field-label label-dk">DK AWAY ML</span>
+        <input type="text" class="field ${g.dkAway ? 'dk-filled' : ''}" data-field="dkAway" value="${g.dkAway ? fmtOdds(g.dkAway) : ''}" placeholder="-135" />
+      </div>
+      <div>
+        <span class="field-label label-espn">ESPN HOME %</span>
+        <input type="text" class="field" data-field="espnHome" value="${esc(g.espnHome)}" placeholder="53" />
+      </div>
+      <div>
+        <span class="field-label label-fd">FD HOME ML</span>
+        <input type="text" class="field ${g.fdHome ? 'fd-filled' : ''}" data-field="fdHome" value="${g.fdHome ? fmtOdds(g.fdHome) : ''}" placeholder="+120" />
+      </div>
+      <div>
+        <span class="field-label label-dk">DK HOME ML</span>
+        <input type="text" class="field ${g.dkHome ? 'dk-filled' : ''}" data-field="dkHome" value="${g.dkHome ? fmtOdds(g.dkHome) : ''}" placeholder="+115" />
+      </div>
+    </div>
+    ${edgePanelHTML}
+  `;
+
+  // Input listeners
+  card.querySelectorAll(".field").forEach(input => {
+    input.addEventListener("input", e => {
+      const game = games.find(x => x.id == g.id);
+      if (game) {
+        game[e.target.dataset.field] = e.target.value;
+        render();
+      }
+    });
+  });
+
+  // Remove button
+  card.querySelector(".btn-remove").addEventListener("click", () => {
+    if (games.length > 1) games = games.filter(x => x.id != g.id);
+    render();
+  });
+
+  return card;
+}
+
+function buildEdgeCell(label, fd, dk) {
+  const fdRow = fd !== null ? `
+    <div class="edge-row">
+      <span class="book-tag book-tag-fd">FD</span>
+      ${pillHTML(fd)}
+    </div>` : "";
+  const dkRow = dk !== null ? `
+    <div class="edge-row">
+      <span class="book-tag book-tag-dk">DK</span>
+      ${pillHTML(dk)}
+    </div>` : "";
+  if (!fdRow && !dkRow) return "";
+  return `<div class="edge-cell">
+    <div class="edge-cell-label">${esc(label)}</div>
+    ${fdRow}${dkRow}
+  </div>`;
+}
+
+function renderSummary() {
+  const allEdges = [];
+  for (const g of games) {
+    if (!g.awayTeam && !g.homeTeam) continue;
+    const fdIA = americanToImplied(g.fdAway), fdIH = americanToImplied(g.fdHome);
+    const dkIA = americanToImplied(g.dkAway), dkIH = americanToImplied(g.dkHome);
+    const fdFair = (fdIA && fdIH) ? removeVig(fdIA, fdIH) : null;
+    const dkFair = (dkIA && dkIH) ? removeVig(dkIA, dkIH) : null;
+    const espnA = parseFloat(g.espnAway) / 100 || null;
+    const espnH = parseFloat(g.espnHome) / 100 || null;
+    const matchup = `${g.awayTeam || "Away"} @ ${g.homeTeam || "Home"}`;
+    if (espnA && fdFair) allEdges.push({ label: g.awayTeam||"Away", matchup, espn: espnA, fdEdge: espnA-fdFair.f1, dkEdge: dkFair ? espnA-dkFair.f1 : null, fdOdds: g.fdAway, dkOdds: g.dkAway });
+    if (espnH && fdFair) allEdges.push({ label: g.homeTeam||"Home", matchup, espn: espnH, fdEdge: espnH-fdFair.f2, dkEdge: dkFair ? espnH-dkFair.f2 : null, fdOdds: g.fdHome, dkOdds: g.dkHome });
+  }
+
+  const sorted = allEdges
+    .map(e => ({ ...e, bestEdge: Math.max(e.fdEdge ?? -99, e.dkEdge ?? -99) }))
+    .sort((a, b) => b.bestEdge - a.bestEdge);
+
+  const wrap = document.getElementById("summary-wrap");
+  const body = document.getElementById("summary-body");
+  const hdr  = document.getElementById("summary-header");
+
+  if (sorted.length === 0) { wrap.style.display = "none"; return; }
+
+  wrap.style.display = "block";
+  hdr.textContent = `TODAY'S EDGE SUMMARY · ${sorted.length} BET${sorted.length !== 1 ? "S" : ""} RANKED`;
+  body.innerHTML = "";
+
+  sorted.forEach((e, i) => {
+    const fdBetter = (e.fdEdge ?? -99) >= (e.dkEdge ?? -99);
+    const bestEdge = fdBetter ? e.fdEdge : e.dkEdge;
+    const bestBook = fdBetter ? "FanDuel" : "DraftKings";
+    const bestOdds = fdBetter ? e.fdOdds : e.dkOdds;
+    const t = edgeTier(bestEdge);
+    const oddsStr = bestOdds ? fmtOdds(bestOdds) : "—";
+    const bookColor = bestBook === "FanDuel" ? "#3b82f6" : "#22c55e";
+    const bookShort = bestBook === "FanDuel" ? "FD" : "DK";
+
+    const tr = document.createElement("tr");
+    tr.className = t.sl;
+    tr.style.borderBottom = "1px solid #0d1420";
+    tr.style.background = i % 2 === 0 ? "transparent" : "#ffffff03";
+    tr.innerHTML = `
+      <td style="color:#374151;font-size:11px;">${String(i+1).padStart(2,"0")}</td>
+      <td style="color:#f9fafb;font-weight:700;font-size:13px;">${esc(e.label)}</td>
+      <td style="color:#4b5563;font-size:11px;">${esc(e.matchup)}</td>
+      <td style="color:#9ca3af;font-size:12px;">${(e.espn*100).toFixed(1)}%</td>
+      <td style="font-size:11px;font-weight:700;color:${bookColor};">${bookShort}</td>
+      <td style="color:#6b7280;font-size:12px;">${oddsStr}</td>
+      <td>${pillHTML(bestEdge)}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function esc(str) {
+  return String(str || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ── Fetch odds ─────────────────────────────────────────────────────────────
+async function fetchOdds() {
+  const btn = document.getElementById("btn-fetch");
+  const status = document.getElementById("fetch-status");
+  const reqLeft = document.getElementById("req-remaining");
+
+  btn.disabled = true;
+  btn.textContent = "FETCHING...";
+  status.style.display = "inline";
+  status.style.color = "#f59e0b";
+  status.textContent = "FETCHING ODDS...";
+
+  try {
+    const url = `https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h&oddsFormat=american&bookmakers=${BOOKMAKERS}`;
+    const res = await fetch(url);
+
+    const remaining = res.headers.get("x-requests-remaining");
+    if (remaining) {
+      reqLeft.style.display = "inline";
+      reqLeft.textContent = remaining + " REQ LEFT";
+    }
+
+    if (!res.ok) {
+      const txt = await res.text();
+      setStatus("⚠ API ERROR " + res.status + " — " + txt.slice(0,60), false);
+      return;
+    }
+
+    const events = await res.json();
+    if (!Array.isArray(events) || events.length === 0) {
+      setStatus("⚠ NO GAMES FOUND — ENTER MANUALLY", false);
+      return;
+    }
+
+    games = events.map(ev => {
+      const awayName = ev.away_team;
+      const homeName = ev.home_team;
+      let fdAway=null, fdHome=null, dkAway=null, dkHome=null;
+      for (const bm of (ev.bookmakers || [])) {
+        const h2h = (bm.markets || []).find(m => m.key === "h2h");
+        if (!h2h) continue;
+        const awayO = (h2h.outcomes || []).find(o => o.name === awayName);
+        const homeO = (h2h.outcomes || []).find(o => o.name === homeName);
+        if (!awayO || !homeO) continue;
+        if (bm.key === "fanduel")    { fdAway = Math.round(awayO.price); fdHome = Math.round(homeO.price); }
+        if (bm.key === "draftkings") { dkAway = Math.round(awayO.price); dkHome = Math.round(homeO.price); }
+      }
+      return {
+        id: Date.now() + Math.random(),
+        awayTeam: teamAbbr(awayName),
+        homeTeam: teamAbbr(homeName),
+        espnAway: "", espnHome: "",
+        fdAway:  fdAway  != null ? String(fdAway)  : "",
+        fdHome:  fdHome  != null ? String(fdHome)  : "",
+        dkAway:  dkAway  != null ? String(dkAway)  : "",
+        dkHome:  dkHome  != null ? String(dkHome)  : "",
+      };
+    });
+
+    render();
+    setStatus(`✓ ${games.length} GAMES · ENTER ESPN % TO SEE EDGE`, true);
+
+  } catch(err) {
+    setStatus("⚠ FETCH FAILED — " + err.message.slice(0,50), false);
+  }
+
+  btn.disabled = false;
+  btn.textContent = "⚡ FETCH ODDS";
+}
+
+function setStatus(msg, ok) {
+  const el = document.getElementById("fetch-status");
+  el.style.display = "inline";
+  el.style.color = ok ? "#22c55e" : "#f59e0b";
+  el.textContent = msg;
+}
+
+// ── Init & events ──────────────────────────────────────────────────────────
+document.getElementById("today-label").textContent =
+  new Date().toLocaleDateString("en-US", { weekday:"long", month:"long", day:"numeric", year:"numeric" }).toUpperCase();
+
+document.getElementById("btn-fetch").addEventListener("click", fetchOdds);
+
+document.getElementById("btn-add").addEventListener("click", () => {
+  games.push(emptyGame());
+  render();
+});
+
+document.getElementById("btn-add-bottom").addEventListener("click", () => {
+  games.push(emptyGame());
+  render();
+});
+
+document.getElementById("btn-clear").addEventListener("click", () => {
+  document.getElementById("btn-clear").style.display = "none";
+  document.getElementById("clear-confirm").style.display = "flex";
+});
+
+document.getElementById("btn-confirm-yes").addEventListener("click", () => {
+  games = [emptyGame()];
+  try { localStorage.removeItem(STORAGE_KEY); } catch {}
+  document.getElementById("fetch-status").style.display = "none";
+  document.getElementById("req-remaining").style.display = "none";
+  document.getElementById("clear-confirm").style.display = "none";
+  document.getElementById("btn-clear").style.display = "inline-block";
+  render();
+});
+
+document.getElementById("btn-confirm-no").addEventListener("click", () => {
+  document.getElementById("clear-confirm").style.display = "none";
+  document.getElementById("btn-clear").style.display = "inline-block";
+});
+
+// Boot
+games = loadGames() || [emptyGame()];
+render();
+</script>
+</body>
+</html>
