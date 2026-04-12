@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MLB Edge Analyzer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #060b14;
+      color: #f9fafb;
+      font-family: 'Courier New', monospace;
+      min-height: 100vh;
+      padding-bottom: 40px;
+    }
+
+    input {
+      background: #0d1520;
+      border: 1px solid #1e2d42;
+      border-radius: 6px;
+      color: #e5e7eb;
+      padding: 10px 12px;
+      font-size: 15px;
+      font-family: 'Courier New', monospace;
+      outline: none;
+      width: 100%;
+      -webkit-appearance: none;
+    }
+    input:focus { border-color: #374151; }
+
+    button {
+      font-family: 'Courier New', monospace;
+      cursor: pointer;
+      border: none;
+      border-radius: 6px;
+      font-weight: 800;
+      font-size: 11px;
+      letter-spacing: 1px;
+      padding: 9px 16px;
+    }
+
+    /* ── Header ── */
+    #header {
+      border-bottom: 1px solid #1a2332;
+      padding: 14px 16px;
+      position: sticky;
+      top: 0;
+      background: #060b14;
+      z-index: 10;
+    }
+    #header-inner {
+      max-width: 680px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    #logo { font-size: 17px; font-weight: 800; letter-spacing: 2px; color: #f9fafb; }
+    #logo-sub { font-size: 9px; color: #22c55e; letter-spacing: 3px; margin-left: 8px; }
+    #today-label { color: #2d3f55; font-size: 9px; margin-top: 3px; letter-spacing: 1px; }
+    #btn-area { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+    #fetch-status { font-size: 10px; letter-spacing: 1px; display: none; }
+    #req-remaining { color: #2d3f55; font-size: 9px; display: none; }
+    #btn-fetch { background: #22c55e; color: #000; }
+    #btn-fetch:disabled { background: #0d1117; color: #374151; cursor: not-allowed; }
+    #btn-add-header { background: none; color: #374151; border: 1px solid #1a2332; }
+    #btn-clear { background: none; color: #374151; border: 1px solid #1a2332; }
+    #clear-confirm { display: none; align-items: center; gap: 5px; }
+    #clear-confirm span { color: #f87171; font-size: 9px; }
+    #btn-confirm-yes { background: #7f1d1d; color: #f87171; border: 1px solid #ef444444; padding: 5px 10px; }
+    #btn-confirm-no { background: none; color: #374151; border: 1px solid #1a2332; padding: 5px 10px; }
+
+    /* ── Main ── */
+    #main { max-width: 680px; margin: 0 auto; padding: 16px; }
+
+    /* ── Game card ── */
+    .game-card {
+      background: #0a1220;
+      border: 1px solid #1e2d42;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+
+    /* Card top bar with game number */
+    .card-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      background: #080e1a;
+      border-bottom: 1px solid #1e2d42;
+    }
+    .game-number {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      color: #22c55e;
+    }
+    .btn-remove {
+      background: none;
+      border: none;
+      color: #2d3f55;
+      cursor: pointer;
+      font-size: 16px;
+      padding: 0;
+      line-height: 1;
+    }
+
+    /* Team row */
+    .team-row {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 8px;
+      align-items: end;
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid #1e2d42;
+    }
+    .team-label {
+      font-size: 9px;
+      color: #374151;
+      letter-spacing: 1.5px;
+      margin-bottom: 4px;
+      display: block;
+    }
+    .at-sym {
+      color: #2d3f55;
+      font-weight: 700;
+      font-size: 16px;
+      padding-bottom: 9px;
+      text-align: center;
+    }
+
+    /* Section block */
+    .section-block {
+      border-bottom: 1px solid #1e2d42;
+      padding: 10px 14px 12px;
+    }
+    .section-block:last-child { border-bottom: none; }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 10px;
+    }
+    .section-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot-espn  { background: #f97316; }
+    .dot-dk    { background: #22c55e; }
+    .dot-fd    { background: #a855f7; }
+
+    .section-title {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+    }
+    .title-espn { color: #f97316; }
+    .title-dk   { color: #22c55e; }
+    .title-fd   { color: #a855f7; }
+
+    /* Two-col input row inside a section */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .input-cell {}
+    .input-sublabel {
+      font-size: 9px;
+      color: #374151;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    /* Implied + edge row under odds inputs */
+    .implied-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 5px;
+      min-height: 20px;
+    }
+    .implied-text {
+      font-size: 10px;
+      color: #4b5563;
+      letter-spacing: 0.5px;
+    }
+
+    /* Edge badge */
+    .edge-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+    .badge-none   { background: #7f1d1d; color: #f87171; border: 1px solid #ef444466; }
+    .badge-marg   { background: #78350f; color: #fbbf24; border: 1px solid #f59e0b66; }
+    .badge-good   { background: #14532d; color: #4ade80; border: 1px solid #22c55e66; }
+    .badge-strong { background: #0c4a6e; color: #7dd3fc; border: 1px solid #38bdf866; }
+
+    /* ── Add game button ── */
+    #btn-add-bottom {
+      width: 100%;
+      background: #0a1220;
+      border: 1px dashed #1e2d42;
+      color: #2d3f55;
+      border-radius: 10px;
+      padding: 14px;
+      cursor: pointer;
+      font-size: 10px;
+      letter-spacing: 2px;
+      margin-top: 4px;
+      font-weight: 700;
+    }
+
+    /* ── Summary ── */
+    #summary-wrap {
+      background: #080e1a;
+      border: 1px solid #1e2d42;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: 20px;
+      display: none;
+    }
+    #summary-header {
+      padding: 11px 14px;
+      border-bottom: 1px solid #1e2d42;
+      color: #374151;
+      font-size: 10px;
+      letter-spacing: 2px;
+      background: #060b14;
+    }
+    .summary-scroll { overflow-x: auto; }
+    #summary-table { width: 100%; border-collapse: collapse; min-width: 420px; }
+    #summary-table th {
+      color: #374151; font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
+      padding: 8px 10px; text-align: left; border-bottom: 1px solid #1a2332;
+      background: #060b14; white-space: nowrap;
+    }
+    #summary-table td { padding: 9px 10px; border-bottom: 1px solid #0d1420; font-size: 12px; }
+    #summary-table tr:last-child td { border-bottom: none; }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="header">
+  <div id="header-inner">
+    <div>
+      <div><span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span></div>
+      <div id="today-label"></div>
+    </div>
+    <div id="btn-area">
+      <span id="fetch-status"></span>
+      <span id="req-remaining"></span>
+      <button id="btn-fetch">⚡ FETCH ODDS</button>
+      <button id="btn-add-header">+ ADD</button>
+      <button id="btn-clear">✕ CLEAR</button>
+      <div id="clear-confirm">
+        <span>CONFIRM?</span>
+        <button id="btn-confirm-yes">YES</button>
+        <button id="btn-confirm-no">NO</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="cards-container"></div>
+  <button id="btn-add-bottom">+ ADD GAME</button>
+
+  <!-- Summary at bottom -->
+  <div id="summary-wrap">
+    <div id="summary-header">SUMMARY — BEST EDGE OPPORTUNITIES</div>
+    <div class="summary-scroll">
+      <table id="summary-table">
+        <thead>
+          <tr>
+            <th>MATCHUP</th>
+            <th>TEAM</th>
+            <th>ESPN%</th>
+            <th>BEST BOOK</th>
+            <th>ODDS</th>
+            <th>EDGE</th>
+          </tr>
+        </thead>
+        <tbody id="summary-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = "mlb-edge-v3";
+const ODDS_API_KEY = "803403e631dec7840e8157415bb61979";
+const BOOKMAKERS = "fanduel,draftkings";
+
+const TEAM_ABBR = {
+  "Arizona Diamondbacks":"ARI","Atlanta Braves":"ATL","Baltimore Orioles":"BAL",
+  "Boston Red Sox":"BOS","Chicago Cubs":"CHC","Chicago White Sox":"CWS",
+  "Cincinnati Reds":"CIN","Cleveland Guardians":"CLE","Colorado Rockies":"COL",
+  "Detroit Tigers":"DET","Houston Astros":"HOU","Kansas City Royals":"KC",
+  "Los Angeles Angels":"LAA","Los Angeles Dodgers":"LAD","Miami Marlins":"MIA",
+  "Milwaukee Brewers":"MIL","Minnesota Twins":"MIN","New York Mets":"NYM",
+  "New York Yankees":"NYY","Oakland Athletics":"OAK","Philadelphia Phillies":"PHI",
+  "Pittsburgh Pirates":"PIT","San Diego Padres":"SD","San Francisco Giants":"SF",
+  "Seattle Mariners":"SEA","St. Louis Cardinals":"STL","Tampa Bay Rays":"TB",
+  "Texas Rangers":"TEX","Toronto Blue Jays":"TOR","Washington Nationals":"WSH",
+  "Athletics":"OAK",
+};
+function teamAbbr(n) { return TEAM_ABBR[n] || n.split(" ").pop().slice(0,3).toUpperCase(); }
+
+// ── Math ───────────────────────────────────────────────────────────────────
+function americanToImplied(odds) {
+  const o = parseFloat(odds);
+  if (isNaN(o) || o === 0) return null;
+  return o > 0 ? 100/(o+100) : Math.abs(o)/(Math.abs(o)+100);
+}
+function removeVig(i1, i2) { const t=i1+i2; return {f1:i1/t, f2:i2/t}; }
+
+function edgeInfo(edge) {
+  const p = edge * 100;
+  const sign = p > 0 ? "+" : "";
+  const str = `${sign}${p.toFixed(1)}%`;
+  if (p <= 0)   return { cls: "badge-none",   str };
+  if (p <= 2.5) return { cls: "badge-marg",   str };
+  if (p <= 5)   return { cls: "badge-good",   str };
+  return               { cls: "badge-strong", str };
+}
+
+function fmtOdds(v) {
+  const n = parseFloat(v);
+  if (isNaN(n)) return v;
+  return (n > 0 ? "+" : "") + n;
+}
+
+function esc(s) {
+  return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+// ── State ──────────────────────────────────────────────────────────────────
+let games = [];
+
+function emptyGame() {
+  return {
+    id: Date.now() + Math.random(),
+    awayTeam:"", homeTeam:"",
+    espnAway:"", espnHome:"", _homeAutoFilled: false,
+    fdAway:"", fdHome:"",
+    dkAway:"", dkHome:"",
+  };
+}
+
+function loadGames() {
+  try {
+    const r = localStorage.getItem(STORAGE_KEY);
+    if (!r) return null;
+    const p = JSON.parse(r);
+    return Array.isArray(p) && p.length > 0 ? p : null;
+  } catch { return null; }
+}
+
+function saveGames() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(games)); } catch {}
+}
+
+// ── Focus tracking (prevent keyboard dismiss) ──────────────────────────────
+let focusedCardId = null;
+let focusedField  = null;
+
+// ── Render ─────────────────────────────────────────────────────────────────
+function render() {
+  saveGames();
+  renderCards();
+  renderSummary();
+}
+
+function renderCards() {
+  const container = document.getElementById("cards-container");
+  container.innerHTML = "";
+  games.forEach((g, idx) => container.appendChild(buildCard(g, idx)));
+
+  // Restore focus
+  if (focusedCardId !== null && focusedField !== null) {
+    const inp = container.querySelector(`[data-cardid="${focusedCardId}"] [data-field="${focusedField}"]`);
+    if (inp) { inp.focus(); const l=inp.value.length; inp.setSelectionRange(l,l); }
+  }
+}
+
+function buildCard(g, idx) {
+  const card = document.createElement("div");
+  card.className = "game-card";
+  card.dataset.cardid = g.id;
+
+  // Compute implied + edges
+  const fdIA = americanToImplied(g.fdAway), fdIH = americanToImplied(g.fdHome);
+  const dkIA = americanToImplied(g.dkAway), dkIH = americanToImplied(g.dkHome);
+  const fdFair = (fdIA && fdIH) ? removeVig(fdIA, fdIH) : null;
+  const dkFair = (dkIA && dkIH) ? removeVig(dkIA, dkIH) : null;
+  const espnA = parseFloat(g.espnAway) / 100 || null;
+  const espnH = parseFloat(g.espnHome) / 100 || null;
+
+  function impliedBadgeHTML(implied, espn, fair, side) {
+    if (!implied) return "";
+    const impPct = (implied * 100).toFixed(1);
+    let badgeHTML = "";
+    if (espn !== null && fair !== null) {
+      const espnVal = side === "away" ? espn : espn;
+      const fairVal = side === "away" ? fair.f1 : fair.f2;
+      const edge = espnVal - fairVal;
+      const ei = edgeInfo(edge);
+      badgeHTML = `<span class="edge-badge ${ei.cls}">${ei.str}</span>`;
+    }
+    return `<div class="implied-row">
+      <span class="implied-text">Implied: ${impPct}%</span>
+      ${badgeHTML}
+    </div>`;
+  }
+
+  card.innerHTML = `
+    <!-- Top bar -->
+    <div class="card-topbar">
+      <span class="game-number">GAME ${idx + 1}</span>
+      <button class="btn-remove" data-remove="${g.id}">✕</button>
+    </div>
+
+    <!-- Team names -->
+    <div class="team-row">
+      <div>
+        <span class="team-label">AWAY TEAM</span>
+        <input type="text" data-field="awayTeam" value="${esc(g.awayTeam)}" placeholder="NYY"
+          autocomplete="off" autocorrect="off" spellcheck="false" />
+      </div>
+      <div class="at-sym">@</div>
+      <div>
+        <span class="team-label">HOME TEAM</span>
+        <input type="text" data-field="homeTeam" value="${esc(g.homeTeam)}" placeholder="BOS"
+          autocomplete="off" autocorrect="off" spellcheck="false" />
+      </div>
+    </div>
+
+    <!-- ESPN section -->
+    <div class="section-block">
+      <div class="section-header">
+        <span class="section-dot dot-espn"></span>
+        <span class="section-title title-espn">ESPN WIN PROBABILITY</span>
+      </div>
+      <div class="two-col">
+        <div class="input-cell">
+          <span class="input-sublabel">${esc(g.awayTeam)||"AWAY"} WIN %</span>
+          <input type="text" inputmode="decimal" data-field="espnAway"
+            value="${esc(g.espnAway)}" placeholder="e.g. 45.2"
+            autocomplete="off" />
+        </div>
+        <div class="input-cell">
+          <span class="input-sublabel">${esc(g.homeTeam)||"HOME"} WIN %</span>
+          <input type="text" inputmode="decimal" data-field="espnHome"
+            value="${esc(g.espnHome)}" placeholder="e.g. 54.8"
+            autocomplete="off" />
+        </div>
+      </div>
+    </div>
+
+    <!-- DraftKings section -->
+    <div class="section-block">
+      <div class="section-header">
+        <span class="section-dot dot-dk"></span>
+        <span class="section-title title-dk">DRAFTKINGS MONEYLINE</span>
+      </div>
+      <div class="two-col">
+        <div class="input-cell">
+          <span class="input-sublabel">${esc(g.awayTeam)||"AWAY"} (e.g. -150)</span>
+          <input type="text" inputmode="numeric" data-field="dkAway"
+            value="${g.dkAway ? fmtOdds(g.dkAway) : ''}" placeholder="-150"
+            autocomplete="off" style="color:${g.dkAway?'#86efac':'#e5e7eb'}" />
+          ${impliedBadgeHTML(dkIA, espnA, dkFair, "away")}
+        </div>
+        <div class="input-cell">
+          <span class="input-sublabel">${esc(g.homeTeam)||"HOME"} (e.g. -150)</span>
+          <input type="text" inputmode="numeric" data-field="dkHome"
+            value="${g.dkHome ? fmtOdds(g.dkHome) : ''}" placeholder="-150"
+            autocomplete="off" style="color:${g.dkHome?'#86efac':'#e5e7eb'}" />
+          ${impliedBadgeHTML(dkIH, espnH, dkFair, "home")}
+        </div>
+      </div>
+    </div>
+
+    <!-- FanDuel section -->
+    <div class="section-block">
+      <div class="section-header">
+        <span class="section-dot dot-fd"></span>
+        <span class="section-title title-fd">FANDUEL MONEYLINE</span>
+      </div>
+      <div class="two-col">
+        <div class="input-cell">
+          <span class="input-sublabel">${esc(g.awayTeam)||"AWAY"} (e.g. +130)</span>
+          <input type="text" inputmode="numeric" data-field="fdAway"
+            value="${g.fdAway ? fmtOdds(g.fdAway) : ''}" placeholder="+130"
+            autocomplete="off" style="color:${g.fdAway?'#c4b5fd':'#e5e7eb'}" />
+          ${impliedBadgeHTML(fdIA, espnA, fdFair, "away")}
+        </div>
+        <div class="input-cell">
+          <span class="input-sublabel">${esc(g.homeTeam)||"HOME"} (e.g. +130)</span>
+          <input type="text" inputmode="numeric" data-field="fdHome"
+            value="${g.fdHome ? fmtOdds(g.fdHome) : ''}" placeholder="+130"
+            autocomplete="off" style="color:${g.fdHome?'#c4b5fd':'#e5e7eb'}" />
+          ${impliedBadgeHTML(fdIH, espnH, fdFair, "home")}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // ── Wire up inputs ──────────────────────────────────────────────────────
+  card.querySelectorAll("input").forEach(input => {
+    const field = input.dataset.field;
+
+    input.addEventListener("focus", () => {
+      focusedCardId = g.id;
+      focusedField  = field;
+    });
+
+    // Live: update state + summary only (no card rebuild = keyboard stays open)
+    input.addEventListener("input", () => {
+      const game = games.find(x => x.id == g.id);
+      if (!game) return;
+      game[field] = input.value;
+      saveGames();
+      renderSummary();
+    });
+
+    // On blur: auto-fill home ESPN %, then full rebuild
+    input.addEventListener("blur", () => {
+      focusedCardId = null;
+      focusedField  = null;
+      const game = games.find(x => x.id == g.id);
+      if (!game) return;
+      game[field] = input.value;
+
+      if (field === "espnAway") {
+        const v = parseFloat(input.value);
+        if (!isNaN(v) && v > 0 && v < 100 && (!game.espnHome || game._homeAutoFilled)) {
+          game.espnHome = (100 - v).toFixed(1).replace(/\.0$/,"");
+          game._homeAutoFilled = true;
+        }
+      }
+      if (field === "espnHome") game._homeAutoFilled = false;
+
+      render();
+    });
+  });
+
+  // Remove
+  card.querySelector("[data-remove]").addEventListener("click", () => {
+    if (games.length > 1) games = games.filter(x => x.id != g.id);
+    render();
+  });
+
+  return card;
+}
+
+// ── Summary ────────────────────────────────────────────────────────────────
+function renderSummary() {
+  const allEdges = [];
+  for (const g of games) {
+    if (!g.awayTeam && !g.homeTeam) continue;
+    const fdIA=americanToImplied(g.fdAway), fdIH=americanToImplied(g.fdHome);
+    const dkIA=americanToImplied(g.dkAway), dkIH=americanToImplied(g.dkHome);
+    const fdFair=(fdIA&&fdIH)?removeVig(fdIA,fdIH):null;
+    const dkFair=(dkIA&&dkIH)?removeVig(dkIA,dkIH):null;
+    const espnA=parseFloat(g.espnAway)/100||null;
+    const espnH=parseFloat(g.espnHome)/100||null;
+    const matchup=`${g.awayTeam||"Away"} @ ${g.homeTeam||"Home"}`;
+
+    if (espnA) {
+      const fdEdge = (fdFair && espnA) ? espnA-fdFair.f1 : null;
+      const dkEdge = (dkFair && espnA) ? espnA-dkFair.f1 : null;
+      if (fdEdge!==null||dkEdge!==null) {
+        const fdBetter = (fdEdge??-99)>=(dkEdge??-99);
+        allEdges.push({
+          label:g.awayTeam||"Away", matchup, espn:espnA,
+          bestEdge: fdBetter?(fdEdge??-99):(dkEdge??-99),
+          bestBook: fdBetter?"FD":"DK",
+          bestOdds: fdBetter?g.fdAway:g.dkAway,
+        });
+      }
+    }
+    if (espnH) {
+      const fdEdge = (fdFair && espnH) ? espnH-fdFair.f2 : null;
+      const dkEdge = (dkFair && espnH) ? espnH-dkFair.f2 : null;
+      if (fdEdge!==null||dkEdge!==null) {
+        const fdBetter = (fdEdge??-99)>=(dkEdge??-99);
+        allEdges.push({
+          label:g.homeTeam||"Home", matchup, espn:espnH,
+          bestEdge: fdBetter?(fdEdge??-99):(dkEdge??-99),
+          bestBook: fdBetter?"FD":"DK",
+          bestOdds: fdBetter?g.fdHome:g.dkHome,
+        });
+      }
+    }
+  }
+
+  const sorted = allEdges.sort((a,b) => b.bestEdge - a.bestEdge);
+  const wrap   = document.getElementById("summary-wrap");
+  const body   = document.getElementById("summary-body");
+
+  if (sorted.length === 0) { wrap.style.display="none"; return; }
+  wrap.style.display = "block";
+  body.innerHTML = "";
+
+  sorted.forEach((e, i) => {
+    const ei = edgeInfo(e.bestEdge);
+    const bookColor = e.bestBook==="FD" ? "#a855f7" : "#22c55e";
+    const oddsStr = e.bestOdds ? fmtOdds(e.bestOdds) : "—";
+    const tr = document.createElement("tr");
+    tr.style.background = i%2===0?"transparent":"#ffffff03";
+    tr.innerHTML = `
+      <td style="color:#4b5563;">${esc(e.matchup)}</td>
+      <td style="color:#f9fafb;font-weight:700;">${esc(e.label)}</td>
+      <td style="color:#f97316;font-weight:700;">${(e.espn*100).toFixed(1)}%</td>
+      <td style="color:${bookColor};font-weight:700;">${e.bestBook}</td>
+      <td style="color:#6b7280;">${oddsStr}</td>
+      <td><span class="edge-badge ${ei.cls}">${ei.str}</span></td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+// ── Fetch ──────────────────────────────────────────────────────────────────
+async function fetchOdds() {
+  const btn = document.getElementById("btn-fetch");
+  btn.disabled = true; btn.textContent = "FETCHING...";
+  setStatus("FETCHING ODDS...", null);
+  try {
+    const url = `https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h&oddsFormat=american&bookmakers=${BOOKMAKERS}`;
+    const res = await fetch(url);
+    const remaining = res.headers.get("x-requests-remaining");
+    if (remaining) { const el=document.getElementById("req-remaining"); el.style.display="inline"; el.textContent=remaining+" REQ LEFT"; }
+    if (!res.ok) { const t=await res.text(); setStatus("⚠ ERROR "+res.status+" — "+t.slice(0,50),false); return; }
+    const events = await res.json();
+    if (!Array.isArray(events)||events.length===0) { setStatus("⚠ NO GAMES — ENTER MANUALLY",false); return; }
+    games = events.map(ev => {
+      const aN=ev.away_team, hN=ev.home_team;
+      let fdA=null,fdH=null,dkA=null,dkH=null;
+      for (const bm of (ev.bookmakers||[])) {
+        const h2h=(bm.markets||[]).find(m=>m.key==="h2h");
+        if(!h2h) continue;
+        const aO=(h2h.outcomes||[]).find(o=>o.name===aN);
+        const hO=(h2h.outcomes||[]).find(o=>o.name===hN);
+        if(!aO||!hO) continue;
+        if(bm.key==="fanduel")   {fdA=Math.round(aO.price);fdH=Math.round(hO.price);}
+        if(bm.key==="draftkings"){dkA=Math.round(aO.price);dkH=Math.round(hO.price);}
+      }
+      return {
+        id:Date.now()+Math.random(),
+        awayTeam:teamAbbr(aN), homeTeam:teamAbbr(hN),
+        espnAway:"", espnHome:"", _homeAutoFilled:false,
+        fdAway:fdA!=null?String(fdA):"", fdHome:fdH!=null?String(fdH):"",
+        dkAway:dkA!=null?String(dkA):"", dkHome:dkH!=null?String(dkH):"",
+      };
+    });
+    render();
+    setStatus(`✓ ${games.length} GAMES LOADED`, true);
+  } catch(err) { setStatus("⚠ FETCH FAILED — "+err.message.slice(0,40), false); }
+  btn.disabled=false; btn.textContent="⚡ FETCH ODDS";
+}
+
+function setStatus(msg, ok) {
+  const el = document.getElementById("fetch-status");
+  el.style.display = "inline";
+  el.style.color = ok===true?"#22c55e":"#f59e0b";
+  el.textContent = msg;
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+document.getElementById("today-label").textContent =
+  new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"}).toUpperCase();
+
+document.getElementById("btn-fetch").addEventListener("click", fetchOdds);
+document.getElementById("btn-add-header").addEventListener("click", ()=>{ games.push(emptyGame()); render(); });
+document.getElementById("btn-add-bottom").addEventListener("click", ()=>{ games.push(emptyGame()); render(); });
+
+document.getElementById("btn-clear").addEventListener("click", ()=>{
+  document.getElementById("btn-clear").style.display="none";
+  document.getElementById("clear-confirm").style.display="flex";
+});
+document.getElementById("btn-confirm-yes").addEventListener("click", ()=>{
+  games=[emptyGame()];
+  try{localStorage.removeItem(STORAGE_KEY);}catch{}
+  document.getElementById("fetch-status").style.display="none";
+  document.getElementById("req-remaining").style.display="none";
+  document.getElementById("clear-confirm").style.display="none";
+  document.getElementById("btn-clear").style.display="inline-block";
+  render();
+});
+document.getElementById("btn-confirm-no").addEventListener("click", ()=>{
+  document.getElementById("clear-confirm").style.display="none";
+  document.getElementById("btn-clear").style.display="inline-block";
+});
+
+games = loadGames() || [emptyGame()];
+render();
+</script>
+</body>
+</html>
