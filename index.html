@@ -922,25 +922,33 @@ function renderSummary(){
      ["home",g.homeTeam||"Home",modelH,espnH,pinH]].forEach(([side,label,modelProb,espnProb,pin])=>{
       if(!modelProb)return;
       const best=bestLineForTeam(g,side);
-      if(!best.implied)return;
+      if(!best.implied||!best.book)return;
 
-      // Vig-remove
-      const oppBest=bestLineForTeam(g,side==="away"?"home":"away");
-      let fairProb=best.implied;
-      if(oppBest.implied){
-        const v=removeVig(best.implied,oppBest.implied);
-        fairProb=side==="away"?v.f1:v.f2;
+      // Vig-remove using the SAME book for both sides (critical for accuracy)
+      const oppOddsObj = side==="away" ? g.homeOdds : g.awayOdds;
+      const oppOddsFromSameBook = oppOddsObj[best.book];
+      const oppImplied = americanToImplied(oppOddsFromSameBook);
+
+      let fairProb = best.implied; // fallback: no vig removal
+      if(oppImplied){
+        const v = removeVig(best.implied, oppImplied);
+        fairProb = side==="away" ? v.f1 : v.f2;
       }
       const edge=modelProb-fairProb;
       const k=kellyFraction(modelProb,best.odds);
       const betAmt=k&&k>0?(k*fraction*bank):null;
 
-      // Pinnacle comparison
+      // Pinnacle comparison — use both sides from Pinnacle for proper vig removal
       let vsPin="—";
       if(pin){
-        const pinFair=removeVig(pin.implied,1-pin.implied).f1;
-        const pinEdge=modelProb-pinFair;
-        vsPin=pinEdge>=0?"✓ +EV":"✗";
+        const pinOppOddsObj = side==="away" ? g.homeOdds : g.awayOdds;
+        const pinOppImplied = americanToImplied(pinOppOddsObj[PINNACLE_KEY]);
+        let pinFair = pin.implied;
+        if(pinOppImplied){
+          const v = removeVig(pin.implied, pinOppImplied);
+          pinFair = side==="away" ? v.f1 : v.f2;
+        }
+        vsPin = modelProb >= pinFair ? "✓ +EV" : "✗";
       }
 
       // Pitcher divergence flag for this side
