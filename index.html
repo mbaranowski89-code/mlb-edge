@@ -518,7 +518,7 @@ function buildCard(g, idx){
 
   function sideHTML(side, label){
     const e=side==="away"?edgeA:edgeH;
-    const f=fair?.(side==="away"?"away":"home");
+    const f=fair?.[side==="away"?"away":"home"];
     const bl=bestLine(g,side);
     if(!bl)return`<div><span class="sub-lbl">${esc(label)}</span><div style="color:#2d3f55;font-size:11px;padding:4px 0;">No odds</div></div>`;
 
