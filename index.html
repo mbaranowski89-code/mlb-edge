@@ -1269,73 +1269,118 @@ function showManualFipModal(names, tryAutoFetch=false){
 async function tryFetchFipInBackground(names, modal){
   const statusEl=modal.querySelector("#fip-auto-status");
   const year=new Date().getFullYear();
-  const fgUrl=`https://www.fangraphs.com/leaders.aspx?pos=all&stats=pit&lg=all&qual=0&type=1&season=${year}&month=0&season1=${year}&ind=0&team=0&rost=0&age=0&filter=&players=0&export=1`;
 
-  // Proxy URLs in order of preference
-  const proxies = [
-    { url: `https://api.allorigins.win/raw?url=${encodeURIComponent(fgUrl)}`, label: "AllOrigins" },
-    { url: `https://fangraphs-proxy-worker.mbaranowski89.workers.dev`, label: "Cloudflare Worker" },
-    { url: `https://corsproxy.io/?${encodeURIComponent(fgUrl)}`, label: "corsproxy.io" },
-    { url: `https://thingproxy.freeboard.io/fetch/${fgUrl}`, label: "thingproxy" },
-  ];
+  // FanGraphs current JSON API — much more reliable than the old CSV export
+  const fgJsonUrl=`https://www.fangraphs.com/api/leaders/major-league/data?age=0&pos=all&stats=pit&lg=all&qual=0&season=${year}&season1=${year}&startdate=&enddate=&month=0&hand=&team=0&pageitems=2000&pagenum=1&ind=0&rost=0&players=0&type=1&postseason=&sortdir=default&sortstat=WAR`;
 
-  const tryFetch=async(url, label)=>{
-    if(statusEl) statusEl.textContent=`Trying ${label}...`;
+  const setStatus=(msg,color="#f59e0b")=>{
+    if(statusEl){ statusEl.textContent=msg; statusEl.style.color=color; }
+  };
+
+  const doFetch=async(url,timeout=12000)=>{
     const c=new AbortController();
-    const t=setTimeout(()=>c.abort(),12000);
+    const t=setTimeout(()=>c.abort(),timeout);
     try{
       const r=await fetch(url,{signal:c.signal});
       clearTimeout(t);
-      if(!r.ok) throw new Error(`${r.status}`);
-      const text=await r.text();
-      if(!text.includes("FIP")||text.length<500) throw new Error("Not CSV");
-      return text;
+      if(!r.ok) throw new Error(r.status);
+      return await r.text();
     }catch(e){ clearTimeout(t); throw e; }
   };
 
-  let csv=null;
-  for(const proxy of proxies){
-    try{ csv=await tryFetch(proxy.url, proxy.label); if(csv) break; }catch{}
-  }
+  // Try each approach in order
+  const attempts=[
+    // 1. Direct JSON API (works if FanGraphs allows CORS for their API — sometimes they do)
+    { label:"FanGraphs API direct",  fn: ()=>doFetch(fgJsonUrl), type:"json" },
+    // 2. AllOrigins with JSON API
+    { label:"AllOrigins → FG API",   fn: ()=>doFetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(fgJsonUrl)}`), type:"json" },
+    // 3. Your Cloudflare Worker (old CSV, will work once you deploy the code)
+    { label:"Cloudflare Worker",     fn: ()=>doFetch(`https://fangraphs-proxy-worker.mbaranowski89.workers.dev`), type:"csv" },
+    // 4. AllOrigins with old CSV URL (may return HTML now but worth trying)
+    { label:"AllOrigins → FG CSV",   fn: ()=>doFetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`https://www.fangraphs.com/leaders.aspx?pos=all&stats=pit&lg=all&qual=0&type=1&season=${year}&month=0&season1=${year}&ind=0&team=0&rost=0&age=0&filter=&players=0&export=1`)}`), type:"csv" },
+  ];
 
-  if(!csv){
-    if(statusEl){ statusEl.textContent="All proxies blocked — enter manually above"; statusEl.style.color="#f59e0b"; }
-    return;
-  }
-
-  // Parse CSV
-  const lines=csv.trim().split("\n");
-  let headerIdx=-1, headers=[];
-  for(let i=0;i<Math.min(5,lines.length);i++){
-    const cols=parseCSVLine(lines[i]);
-    if(cols.some(c=>c.trim()==="FIP")&&cols.some(c=>c.trim()==="Name")){
-      headerIdx=i; headers=cols.map(c=>c.trim()); break;
-    }
-  }
-  if(headerIdx<0){ if(statusEl){statusEl.textContent="CSV parse failed — enter manually";} return; }
-
-  const nameCol=headers.indexOf("Name"), fipCol=headers.indexOf("FIP"), xfipCol=headers.indexOf("xFIP");
-  const lookup={};
-  for(let i=headerIdx+1;i<lines.length;i++){
-    const cols=parseCSVLine(lines[i]);
-    const fn=cols[nameCol]?.trim()||"";
-    const ln=fn.split(" ").pop().toLowerCase();
-    if(ln) lookup[ln]={fip:cols[fipCol]?.trim()||"",xfip:xfipCol>=0?cols[xfipCol]?.trim()||"":""};
-  }
-
-  // Fill inputs in the modal
   let filled=0;
-  modal.querySelectorAll(".fip-input").forEach(inp=>{
-    const name=inp.dataset.name, stat=inp.dataset.stat;
-    const ln=name.split(" ").pop().toLowerCase();
-    const match=lookup[ln];
-    if(match&&match[stat]){ inp.value=match[stat]; filled++; }
-  });
 
-  if(statusEl){
-    statusEl.textContent=filled>0?`✓ Auto-filled ${filled} fields — review & save`:"Auto-fetch returned no matches — enter manually";
-    statusEl.style.color=filled>0?"#22c55e":"#f59e0b";
+  for(const attempt of attempts){
+    setStatus(`Trying ${attempt.label}...`);
+    try{
+      const raw=await attempt.fn();
+      if(!raw||raw.length<200) continue;
+
+      if(attempt.type==="json"){
+        // Parse FanGraphs JSON response
+        // Response shape: { data: [ {PlayerName, FIP, xFIP, ...}, ... ] }
+        let parsed;
+        try{ parsed=JSON.parse(raw); }catch{ continue; }
+        const rows=parsed?.data||parsed?.Data||[];
+        if(!Array.isArray(rows)||!rows.length) continue;
+
+        // Build lookup by last name
+        const lookup={};
+        for(const row of rows){
+          const name=row.PlayerName||row.Name||row.name||"";
+          if(!name) continue;
+          const ln=name.split(" ").pop().toLowerCase();
+          // FanGraphs field names vary — try common variants
+          const fip=String(row.FIP||row.fip||row["FIP-"]||"").trim();
+          const xfip=String(row.xFIP||row.xfip||row["xFIP-"]||"").trim();
+          if(ln) lookup[ln]={fip,xfip};
+        }
+
+        modal.querySelectorAll(".fip-input").forEach(inp=>{
+          const pname=inp.dataset.name, stat=inp.dataset.stat;
+          const ln=pname.split(" ").pop().toLowerCase();
+          const match=lookup[ln];
+          if(match&&match[stat]&&parseFloat(match[stat])>0){ inp.value=parseFloat(match[stat]).toFixed(2); filled++; }
+        });
+
+        if(filled>0){
+          setStatus(`✓ Auto-filled ${filled} fields via ${attempt.label} — review & save`,"#22c55e");
+          return;
+        }
+
+      } else {
+        // Parse CSV
+        if(!raw.includes("FIP")) continue;
+        const lines=raw.trim().split("\n");
+        let headerIdx=-1, headers=[];
+        for(let i=0;i<Math.min(5,lines.length);i++){
+          const cols=parseCSVLine(lines[i]);
+          if(cols.some(c=>c.trim()==="FIP")&&cols.some(c=>c.trim()==="Name")){
+            headerIdx=i; headers=cols.map(c=>c.trim()); break;
+          }
+        }
+        if(headerIdx<0) continue;
+
+        const nameCol=headers.indexOf("Name"),fipCol=headers.indexOf("FIP"),xfipCol=headers.indexOf("xFIP");
+        if(nameCol<0||fipCol<0) continue;
+
+        const lookup={};
+        for(let i=headerIdx+1;i<lines.length;i++){
+          const cols=parseCSVLine(lines[i]);
+          const fn=cols[nameCol]?.trim()||"";
+          const ln=fn.split(" ").pop().toLowerCase();
+          if(ln) lookup[ln]={fip:cols[fipCol]?.trim()||"",xfip:xfipCol>=0?cols[xfipCol]?.trim()||"":""};
+        }
+
+        modal.querySelectorAll(".fip-input").forEach(inp=>{
+          const pname=inp.dataset.name, stat=inp.dataset.stat;
+          const ln=pname.split(" ").pop().toLowerCase();
+          const match=lookup[ln];
+          if(match&&match[stat]&&parseFloat(match[stat])>0){ inp.value=parseFloat(match[stat]).toFixed(2); filled++; }
+        });
+
+        if(filled>0){
+          setStatus(`✓ Auto-filled ${filled} fields via ${attempt.label} — review & save`,"#22c55e");
+          return;
+        }
+      }
+    }catch(e){ /* try next */ }
   }
+
+  // All attempts exhausted
+  setStatus("Auto-fetch unavailable — enter FIP/xFIP manually above (see FanGraphs link)");
 }
 
 // CSV line parser
