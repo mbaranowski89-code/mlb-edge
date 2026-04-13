@@ -1,207 +1,155 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>MLB Edge Analyzer</title>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{background:#060b14;color:#f9fafb;font-family:'Courier New',monospace;min-height:100vh;padding-bottom:60px;}
+    input,select,textarea{background:#0d1520;border:1px solid #1e2d42;border-radius:6px;color:#e5e7eb;padding:9px 11px;font-size:14px;font-family:'Courier New',monospace;outline:none;width:100%;-webkit-appearance:none;}
+    input:focus,select:focus{border-color:#374151;}
+    select option{background:#0d1520;}
+    button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-radius:6px;font-weight:800;font-size:11px;letter-spacing:1px;padding:8px 14px;}
 
-    body {
-      background: #060b14;
-      color: #f9fafb;
-      font-family: 'Courier New', monospace;
-      min-height: 100vh;
-    }
+    /* ── NAV TABS ── */
+    #nav{background:#080e1a;border-bottom:1px solid #1e2d42;padding:0 16px;display:flex;gap:0;position:sticky;top:0;z-index:20;}
+    .nav-tab{padding:12px 16px;font-size:11px;font-weight:700;letter-spacing:1.5px;color:#374151;cursor:pointer;border-bottom:2px solid transparent;background:none;border-radius:0;}
+    .nav-tab.active{color:#22c55e;border-bottom-color:#22c55e;}
 
-    input {
-      background: #060b14;
-      border: 1px solid #1a2332;
-      border-radius: 4px;
-      color: #e5e7eb;
-      padding: 8px 10px;
-      font-size: 14px;
-      font-family: 'Courier New', monospace;
-      outline: none;
-      width: 100%;
-      -webkit-appearance: none;
-    }
-    input:focus { border-color: #374151; }
-    input.fd-filled { color: #93c5fd; }
-    input.dk-filled { color: #86efac; }
+    /* ── HEADER ── */
+    #header{border-bottom:1px solid #1a2332;padding:12px 16px;background:#060b14;}
+    #header-inner{max-width:740px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+    #logo{font-size:16px;font-weight:800;letter-spacing:2px;color:#f9fafb;}
+    #logo-sub{font-size:9px;color:#22c55e;letter-spacing:3px;margin-left:8px;}
+    #today-label{color:#2d3f55;font-size:9px;margin-top:3px;letter-spacing:1px;}
+    #btn-area{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+    #fetch-status{font-size:10px;letter-spacing:1px;display:none;}
+    #req-remaining{color:#2d3f55;font-size:9px;display:none;}
+    #btn-fetch{background:#22c55e;color:#000;}
+    #btn-fetch:disabled{background:#0d1117;color:#374151;cursor:not-allowed;}
+    .btn-ghost{background:none;color:#374151;border:1px solid #1a2332;}
+    #clear-confirm{display:none;align-items:center;gap:5px;}
+    #clear-confirm span{color:#f87171;font-size:9px;}
+    #btn-confirm-yes{background:#7f1d1d;color:#f87171;border:1px solid #ef444444;padding:5px 10px;}
+    #btn-confirm-no{background:none;color:#374151;border:1px solid #1a2332;padding:5px 10px;}
 
-    button {
-      font-family: 'Courier New', monospace;
-      cursor: pointer;
-      border: none;
-      border-radius: 5px;
-      font-weight: 800;
-      font-size: 10px;
-      letter-spacing: 1px;
-      padding: 8px 14px;
-    }
+    /* ── PAGES ── */
+    .page{display:none;max-width:740px;margin:0 auto;padding:16px;}
+    .page.active{display:block;}
 
-    /* ── Header ── */
-    #header {
-      border-bottom: 1px solid #1a2332;
-      padding: 14px 16px;
-    }
-    #header-inner {
-      max-width: 900px;
-      margin: 0 auto;
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    #logo { font-size: 18px; font-weight: 800; letter-spacing: 2px; color: #f9fafb; }
-    #logo-sub { font-size: 9px; color: #22c55e; letter-spacing: 3px; margin-left: 8px; }
-    #today-label { color: #1f2937; font-size: 9px; margin-top: 3px; letter-spacing: 1px; }
-    #btn-area { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    /* ── BANKROLL BAR ── */
+    #bankroll-bar{background:#080e1a;border:1px solid #1e2d42;border-radius:10px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+    #bankroll-bar label{font-size:9px;color:#374151;letter-spacing:1.5px;white-space:nowrap;}
+    #bankroll-input{width:130px;flex-shrink:0;}
+    #kelly-fraction-wrap{display:flex;align-items:center;gap:8px;}
+    #kelly-fraction-wrap label{font-size:9px;color:#374151;letter-spacing:1px;white-space:nowrap;}
+    #kelly-select{width:110px;}
 
-    #fetch-status { font-size: 10px; letter-spacing: 1px; display: none; }
-    #req-remaining { color: #374151; font-size: 9px; display: none; }
+    /* ── GAME CARD ── */
+    .game-card{background:#0a1220;border:1px solid #1e2d42;border-radius:12px;margin-bottom:12px;overflow:hidden;}
+    .card-topbar{display:flex;align-items:center;justify-content:space-between;padding:7px 14px;background:#080e1a;border-bottom:1px solid #1e2d42;}
+    .game-number{font-size:10px;font-weight:800;letter-spacing:2px;color:#22c55e;}
+    .card-topbar-right{display:flex;align-items:center;gap:10px;}
+    .pinnacle-flag{font-size:9px;color:#f59e0b;letter-spacing:1px;display:none;}
+    .btn-remove{background:none;border:none;color:#2d3f55;cursor:pointer;font-size:16px;padding:0;line-height:1;}
 
-    #btn-fetch  { background: #22c55e; color: #000; }
-    #btn-fetch:disabled { background: #0d1117; color: #374151; cursor: not-allowed; }
-    #btn-add    { background: none; color: #374151; border: 1px solid #1a2332; }
-    #btn-clear  { background: none; color: #374151; border: 1px solid #1a2332; }
-    #clear-confirm { display: none; align-items: center; gap: 5px; }
-    #clear-confirm span { color: #f87171; font-size: 9px; }
-    #btn-confirm-yes { background: #7f1d1d; color: #f87171; border: 1px solid #ef444444; padding: 5px 10px; }
-    #btn-confirm-no  { background: none; color: #374151; border: 1px solid #1a2332; padding: 5px 10px; }
+    .team-row{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:end;padding:11px 14px 10px;border-bottom:1px solid #1e2d42;}
+    .team-label{font-size:9px;color:#374151;letter-spacing:1.5px;margin-bottom:4px;display:block;}
+    .at-sym{color:#2d3f55;font-weight:700;font-size:15px;padding-bottom:9px;text-align:center;}
 
-    /* ── Main ── */
-    #main { max-width: 900px; margin: 0 auto; padding: 16px; }
+    .section-block{border-bottom:1px solid #1e2d42;padding:10px 14px 12px;}
+    .section-block:last-child{border-bottom:none;}
+    .section-header{display:flex;align-items:center;gap:7px;margin-bottom:10px;}
+    .section-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+    .dot-espn{background:#f97316;} .dot-model{background:#38bdf8;} .dot-dk{background:#22c55e;} .dot-fd{background:#a855f7;} .dot-pinnacle{background:#f59e0b;} .dot-best{background:#22c55e;}
+    .section-title{font-size:10px;font-weight:800;letter-spacing:1.5px;}
+    .title-espn{color:#f97316;} .title-model{color:#38bdf8;} .title-dk{color:#22c55e;} .title-fd{color:#a855f7;} .title-pinnacle{color:#f59e0b;} .title-best{color:#22c55e;}
 
-    /* ── Summary table ── */
-    #summary-wrap {
-      background: #080e1a;
-      border: 1px solid #1a2332;
-      border-radius: 10px;
-      overflow-x: auto;
-      margin-bottom: 24px;
-      display: none;
-    }
-    #summary-header {
-      padding: 12px 14px 10px;
-      border-bottom: 1px solid #0f1829;
-      color: #374151;
-      font-size: 10px;
-      letter-spacing: 2px;
-    }
-    #summary-table { width: 100%; border-collapse: collapse; min-width: 480px; }
-    #summary-table th {
-      color: #374151; font-size: 10px; font-weight: 600; letter-spacing: 1.5px;
-      padding: 8px 12px; text-align: left; border-bottom: 1px solid #1a2332;
-      background: #060b14;
-    }
-    #summary-table td { padding: 9px 12px; border-bottom: 1px solid #0d1420; }
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .input-sublabel{font-size:9px;color:#374151;letter-spacing:1px;margin-bottom:4px;display:block;}
+    .implied-row{display:flex;align-items:center;gap:6px;margin-top:5px;min-height:20px;flex-wrap:wrap;}
+    .implied-text{font-size:10px;color:#4b5563;letter-spacing:0.5px;}
 
-    /* ── Divider ── */
-    .section-divider {
-      display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
-    }
-    .section-divider span { color: #1f2937; font-size: 9px; letter-spacing: 2px; white-space: nowrap; }
-    .section-divider .line { flex: 1; height: 1px; background: #1a2332; }
-    .section-divider .autosave { color: #1a2332; font-size: 9px; white-space: nowrap; }
+    /* model prob row */
+    .model-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;}
+    .model-cell{background:#060b14;border:1px solid #1e2d42;border-radius:6px;padding:8px 10px;text-align:center;}
+    .model-label{font-size:8px;color:#374151;letter-spacing:1px;margin-bottom:3px;}
+    .model-value{font-size:15px;font-weight:800;color:#38bdf8;}
+    .model-sub{font-size:9px;color:#374151;margin-top:2px;}
 
-    /* ── Game card ── */
-    .game-card {
-      background: #080e1a;
-      border: 1px solid #1a2332;
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 8px;
-    }
+    /* pitcher row */
+    .pitcher-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+    .pitcher-cell{background:#060b14;border:1px solid #1e2d42;border-radius:6px;padding:8px 10px;}
+    .pitcher-name{font-size:11px;font-weight:700;color:#e5e7eb;margin-bottom:4px;}
+    .pitcher-stats{display:flex;gap:8px;flex-wrap:wrap;}
+    .pitcher-stat{font-size:9px;color:#6b7280;}
+    .pitcher-stat span{color:#9ca3af;font-weight:700;}
 
-    /* Team header row */
-    .team-header {
-      display: grid;
-      grid-template-columns: 1fr 24px 1fr 28px;
-      align-items: end;
-      gap: 6px;
-      margin-bottom: 10px;
-    }
-    .at-sign { color: #1f2937; font-weight: 700; font-size: 14px; text-align: center; padding-bottom: 7px; }
-    .btn-remove {
-      background: none; border: none; color: #1f2937;
-      cursor: pointer; font-size: 16px; padding-bottom: 6px;
-      font-weight: normal; letter-spacing: 0; text-align: center;
-    }
+    /* best line highlight */
+    .best-line-note{font-size:9px;color:#22c55e;letter-spacing:1px;margin-bottom:6px;}
 
-    /* Two-column data grid: away | home */
-    .data-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px 10px;
-      margin-bottom: 10px;
-    }
-    .data-col { display: flex; flex-direction: column; gap: 6px; }
-    .col-header {
-      font-size: 9px; letter-spacing: 2px; color: #374151;
-      padding-bottom: 2px; border-bottom: 1px solid #1a2332;
-      margin-bottom: 2px;
-    }
+    /* kelly row */
+    .kelly-row{display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;}
+    .kelly-label{font-size:9px;color:#4b5563;letter-spacing:0.5px;}
+    .kelly-amount{font-size:12px;font-weight:800;color:#38bdf8;}
 
-    .field-group { display: flex; flex-direction: column; gap: 3px; }
-    .field-label {
-      font-size: 9px; letter-spacing: 1.5px; display: block;
-    }
-    .label-espn { color: #f97316; }
-    .label-fd   { color: #3b82f6; }
-    .label-dk   { color: #22c55e; }
-    .label-gray { color: #374151; }
+    /* ── EDGE BADGE ── */
+    .edge-badge{display:inline-flex;align-items:center;gap:4px;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:800;letter-spacing:0.5px;white-space:nowrap;}
+    .badge-none  {background:#7f1d1d;color:#f87171;border:1px solid #ef444466;}
+    .badge-marg  {background:#78350f;color:#fbbf24;border:1px solid #f59e0b66;}
+    .badge-good  {background:#14532d;color:#4ade80;border:1px solid #22c55e66;}
+    .badge-strong{background:#0c4a6e;color:#7dd3fc;border:1px solid #38bdf866;}
+    .badge-pin   {background:#78350f44;color:#f59e0b;border:1px solid #f59e0b66;font-size:9px;}
 
-    /* ── Edge panel ── */
-    .edge-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-    .edge-cell {
-      background: #060b14; border: 1px solid #1a2332;
-      border-radius: 5px; padding: 6px 9px;
-    }
-    .edge-cell-label { color: #6b7280; font-size: 10px; font-weight: 700; margin-bottom: 4px; }
-    .edge-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
-    .edge-row:last-child { margin-bottom: 0; }
-    .book-tag { font-size: 9px; }
-    .book-tag-fd { color: #1d4ed8; }
-    .book-tag-dk { color: #15803d; }
+    /* ── SUMMARY ── */
+    #summary-wrap{background:#080e1a;border:1px solid #1e2d42;border-radius:12px;overflow:hidden;margin-top:20px;display:none;}
+    #summary-header{padding:11px 14px;border-bottom:1px solid #1e2d42;color:#374151;font-size:10px;letter-spacing:2px;background:#060b14;}
+    .tbl-scroll{overflow-x:auto;}
+    .data-table{width:100%;border-collapse:collapse;min-width:500px;}
+    .data-table th{color:#374151;font-size:9px;font-weight:700;letter-spacing:1.5px;padding:8px 10px;text-align:left;border-bottom:1px solid #1a2332;background:#060b14;white-space:nowrap;}
+    .data-table td{padding:9px 10px;border-bottom:1px solid #0d1420;font-size:12px;vertical-align:middle;}
+    .data-table tr:last-child td{border-bottom:none;}
+    .log-btn{background:#0a1220;border:1px solid #1e2d42;color:#22c55e;padding:4px 9px;font-size:9px;border-radius:4px;cursor:pointer;letter-spacing:1px;}
 
-    /* ── Edge pill ── */
-    .edge-pill {
-      display: inline-flex; align-items: center; gap: 5px;
-      border-radius: 3px; padding: 2px 8px;
-      font-size: 10px; font-weight: 700; letter-spacing: 0.5px; white-space: nowrap;
-    }
-    .edge-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+    /* ── BET LOG PAGE ── */
+    #log-form{background:#0a1220;border:1px solid #1e2d42;border-radius:12px;padding:14px;margin-bottom:16px;}
+    .log-form-title{font-size:10px;color:#374151;letter-spacing:2px;margin-bottom:12px;}
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+    .form-field label{font-size:9px;color:#374151;letter-spacing:1px;margin-bottom:3px;display:block;}
+    .form-row{display:flex;gap:8px;margin-top:4px;}
+    .btn-log-submit{background:#22c55e;color:#000;width:100%;margin-top:10px;padding:10px;}
+    .btn-result-win{background:#14532d;color:#4ade80;border:1px solid #22c55e44;padding:4px 10px;font-size:10px;}
+    .btn-result-loss{background:#7f1d1d;color:#f87171;border:1px solid #ef444444;padding:4px 10px;font-size:10px;}
+    .btn-result-void{background:#1f2937;color:#6b7280;border:1px solid #37415144;padding:4px 10px;font-size:10px;}
+    .btn-delete-log{background:none;border:none;color:#374151;cursor:pointer;font-size:13px;padding:2px 6px;}
 
-    .tier-none   { background: #7f1d1d18; border: 1px solid #ef444444; }
-    .tier-none   .edge-dot  { background: #ef4444; box-shadow: 0 0 5px #ef4444; }
-    .tier-none   .edge-text { color: #f87171; }
-    .tier-marg   { background: #78350f18; border: 1px solid #f59e0b44; }
-    .tier-marg   .edge-dot  { background: #f59e0b; box-shadow: 0 0 5px #f59e0b; }
-    .tier-marg   .edge-text { color: #fbbf24; }
-    .tier-good   { background: #14532d18; border: 1px solid #22c55e44; }
-    .tier-good   .edge-dot  { background: #22c55e; box-shadow: 0 0 5px #22c55e; }
-    .tier-good   .edge-text { color: #4ade80; }
-    .tier-strong { background: #0c4a6e18; border: 1px solid #38bdf844; }
-    .tier-strong .edge-dot  { background: #38bdf8; box-shadow: 0 0 5px #38bdf8; }
-    .tier-strong .edge-text { color: #7dd3fc; }
+    /* ── STATS PAGE ── */
+    .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+    .stat-card{background:#0a1220;border:1px solid #1e2d42;border-radius:10px;padding:14px;}
+    .stat-label{font-size:9px;color:#374151;letter-spacing:1.5px;margin-bottom:6px;}
+    .stat-value{font-size:22px;font-weight:800;color:#f9fafb;}
+    .stat-sub{font-size:10px;color:#4b5563;margin-top:3px;}
+    .stat-positive{color:#4ade80;}
+    .stat-negative{color:#f87171;}
+    .stat-neutral{color:#9ca3af;}
+    .confidence-bar-wrap{background:#0a1220;border:1px solid #1e2d42;border-radius:10px;padding:14px;margin-bottom:12px;}
+    .confidence-title{font-size:10px;color:#374151;letter-spacing:1.5px;margin-bottom:10px;}
+    .conf-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+    .conf-label{font-size:10px;color:#6b7280;width:80px;flex-shrink:0;}
+    .conf-bar-bg{flex:1;height:6px;background:#1e2d42;border-radius:3px;overflow:hidden;}
+    .conf-bar-fill{height:100%;border-radius:3px;transition:width 0.4s;}
+    .conf-value{font-size:10px;font-weight:700;width:50px;text-align:right;flex-shrink:0;}
+    .clv-section{background:#0a1220;border:1px solid #1e2d42;border-radius:10px;padding:14px;margin-bottom:12px;}
+    .clv-title{font-size:10px;color:#374151;letter-spacing:1.5px;margin-bottom:10px;}
+    .empty-state{text-align:center;padding:32px 16px;color:#2d3f55;font-size:11px;letter-spacing:1px;}
 
-    .sl-none   { border-left: 2px solid #ef4444; }
-    .sl-marg   { border-left: 2px solid #f59e0b; }
-    .sl-good   { border-left: 2px solid #22c55e; }
-    .sl-strong { border-left: 2px solid #38bdf8; }
-
-    #btn-add-bottom {
-      width: 100%; background: none; border: 1px dashed #1a2332;
-      color: #1f2937; border-radius: 6px; padding: 10px;
-      cursor: pointer; font-size: 10px; letter-spacing: 2px; margin-top: 6px; font-weight: 600;
-    }
+    #btn-add-bottom{width:100%;background:#0a1220;border:1px dashed #1e2d42;color:#2d3f55;border-radius:10px;padding:14px;cursor:pointer;font-size:10px;letter-spacing:2px;margin-top:4px;font-weight:700;}
   </style>
 </head>
 <body>
 
+<!-- HEADER -->
 <div id="header">
   <div id="header-inner">
     <div>
@@ -212,8 +160,8 @@
       <span id="fetch-status"></span>
       <span id="req-remaining"></span>
       <button id="btn-fetch">⚡ FETCH ODDS</button>
-      <button id="btn-add">+ ADD GAME</button>
-      <button id="btn-clear">✕ CLEAR</button>
+      <button id="btn-add-header" class="btn-ghost">+ ADD</button>
+      <button id="btn-clear" class="btn-ghost">✕ CLEAR</button>
       <div id="clear-confirm">
         <span>CONFIRM?</span>
         <button id="btn-confirm-yes">YES</button>
@@ -223,34 +171,139 @@
   </div>
 </div>
 
-<div id="main">
-  <div id="summary-wrap">
-    <div id="summary-header">TODAY'S EDGE SUMMARY</div>
-    <table id="summary-table">
-      <thead>
-        <tr>
-          <th>#</th><th>TEAM</th><th>MATCHUP</th>
-          <th>ESPN</th><th>BOOK</th><th>ODDS</th><th>EDGE</th>
-        </tr>
-      </thead>
-      <tbody id="summary-body"></tbody>
-    </table>
-  </div>
+<!-- NAV -->
+<div id="nav">
+  <button class="nav-tab active" data-tab="analysis">ANALYSIS</button>
+  <button class="nav-tab" data-tab="log">BET LOG</button>
+  <button class="nav-tab" data-tab="stats">STATS</button>
+</div>
 
-  <div class="section-divider">
-    <span>GAME DATA · ESPN % REQUIRED FOR EDGE</span>
-    <div class="line"></div>
-    <span class="autosave">AUTO-SAVED</span>
+<!-- ══════════════════════════════════════════════ -->
+<!-- PAGE: ANALYSIS                                 -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="page active" id="page-analysis">
+
+  <!-- Bankroll / Kelly bar -->
+  <div id="bankroll-bar">
+    <label>BANKROLL $</label>
+    <input id="bankroll-input" type="number" placeholder="1000" min="0" />
+    <div id="kelly-fraction-wrap">
+      <label>KELLY</label>
+      <select id="kelly-select">
+        <option value="1">Full Kelly</option>
+        <option value="0.5" selected>Half Kelly</option>
+        <option value="0.25">Quarter Kelly</option>
+      </select>
+    </div>
   </div>
 
   <div id="cards-container"></div>
   <button id="btn-add-bottom">+ ADD GAME</button>
+
+  <!-- Summary -->
+  <div id="summary-wrap">
+    <div id="summary-header">SUMMARY — BEST EDGE OPPORTUNITIES</div>
+    <div class="tbl-scroll">
+      <table class="data-table" id="summary-table">
+        <thead>
+          <tr>
+            <th>MATCHUP</th><th>TEAM</th><th>ESPN%</th><th>MODEL%</th>
+            <th>BEST BOOK</th><th>ODDS</th><th>EDGE</th><th>KELLY BET</th><th>vs PIN</th><th>LOG</th>
+          </tr>
+        </thead>
+        <tbody id="summary-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- PAGE: BET LOG                                  -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="page" id="page-log">
+
+  <div id="log-form">
+    <div class="log-form-title">LOG A BET</div>
+    <div class="form-grid">
+      <div class="form-field"><label>DATE</label><input type="date" id="log-date"/></div>
+      <div class="form-field"><label>MATCHUP</label><input type="text" id="log-matchup" placeholder="NYY @ BOS"/></div>
+      <div class="form-field"><label>TEAM BET</label><input type="text" id="log-team" placeholder="NYY"/></div>
+      <div class="form-field"><label>BOOK</label><input type="text" id="log-book" placeholder="FanDuel"/></div>
+      <div class="form-field"><label>ODDS (American)</label><input type="number" id="log-odds" placeholder="-140"/></div>
+      <div class="form-field"><label>STAKE ($)</label><input type="number" id="log-stake" placeholder="50"/></div>
+      <div class="form-field"><label>ESPN WIN %</label><input type="number" id="log-espn" placeholder="55.3" step="0.1"/></div>
+      <div class="form-field"><label>MODEL WIN %</label><input type="number" id="log-model" placeholder="53.1" step="0.1"/></div>
+      <div class="form-field"><label>EDGE %</label><input type="number" id="log-edge" placeholder="4.2" step="0.1"/></div>
+      <div class="form-field"><label>CLOSING LINE (opt.)</label><input type="number" id="log-close" placeholder="-155"/></div>
+    </div>
+    <button class="btn-log-submit" id="btn-log-submit">+ LOG BET</button>
+  </div>
+
+  <div id="log-table-wrap">
+    <div class="tbl-scroll">
+      <table class="data-table" id="log-table">
+        <thead>
+          <tr>
+            <th>DATE</th><th>MATCHUP</th><th>TEAM</th><th>BOOK</th>
+            <th>ODDS</th><th>STAKE</th><th>ESPN%</th><th>EDGE%</th>
+            <th>CLV</th><th>RESULT</th><th>P&L</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="log-body"></tbody>
+      </table>
+    </div>
+    <div id="log-empty" class="empty-state">NO BETS LOGGED YET</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ -->
+<!-- PAGE: STATS                                    -->
+<!-- ══════════════════════════════════════════════ -->
+<div class="page" id="page-stats">
+  <div class="stats-grid" id="stats-grid"></div>
+
+  <div class="confidence-bar-wrap" id="conf-wrap" style="display:none">
+    <div class="confidence-title">ROI CONFIDENCE INTERVAL (95%)</div>
+    <div id="conf-content"></div>
+    <div style="font-size:9px;color:#374151;margin-top:8px;line-height:1.6;">
+      Based on your sample size, your true ROI likely falls within this range.
+      You need ~500+ settled bets for meaningful confidence.
+    </div>
+  </div>
+
+  <div class="clv-section" id="clv-wrap" style="display:none">
+    <div class="clv-title">CLOSING LINE VALUE (CLV)</div>
+    <div id="clv-content"></div>
+    <div style="font-size:9px;color:#374151;margin-top:8px;line-height:1.6;">
+      CLV = the odds you got vs. the closing line. Consistently positive CLV
+      is the strongest indicator of a real betting edge, regardless of short-term results.
+    </div>
+  </div>
+
+  <div id="stats-empty" class="empty-state">LOG BETS TO SEE STATS</div>
 </div>
 
 <script>
-const STORAGE_KEY = "mlb-edge-games-v2";
-const ODDS_API_KEY = "803403e631dec7840e8157415bb61979";
-const BOOKMAKERS = "fanduel,draftkings";
+// ══════════════════════════════════════════════════════
+// CONSTANTS & CONFIG
+// ══════════════════════════════════════════════════════
+const STORAGE_GAMES   = "mlb-edge-v4-games";
+const STORAGE_LOG     = "mlb-edge-v4-log";
+const STORAGE_BANK    = "mlb-edge-v4-bank";
+const ODDS_API_KEY    = "803403e631dec7840e8157415bb61979";
+
+// All US books + Pinnacle for benchmark
+const US_BOOKS        = "fanduel,draftkings,betmgm,caesars,espnbet,bet365";
+const PINNACLE_KEY    = "pinnacle";
+
+// Park factors (runs above/below average, 100 = neutral)
+const PARK_FACTORS = {
+  "COL":115,"BOS":105,"CIN":105,"TEX":104,"PHI":103,"CHC":103,
+  "HOU":102,"NYY":101,"MIL":101,"ATL":100,"LAD":100,"NYM":100,
+  "STL":100,"SD":99,"SF":98,"TB":98,"MIN":98,"DET":97,
+  "MIA":97,"PIT":97,"SEA":97,"BAL":97,"OAK":96,"LAA":96,
+  "KC":96,"CLE":95,"ARI":95,"TOR":95,"CWS":94,"WSH":94,
+};
 
 const TEAM_ABBR = {
   "Arizona Diamondbacks":"ARI","Atlanta Braves":"ATL","Baltimore Orioles":"BAL",
@@ -265,323 +318,898 @@ const TEAM_ABBR = {
   "Texas Rangers":"TEX","Toronto Blue Jays":"TOR","Washington Nationals":"WSH",
   "Athletics":"OAK",
 };
-function teamAbbr(n) { return TEAM_ABBR[n] || n.split(" ").pop().slice(0,3).toUpperCase(); }
+function teamAbbr(n){return TEAM_ABBR[n]||n.split(" ").pop().slice(0,3).toUpperCase();}
 
-// ── Math ───────────────────────────────────────────────────────────────────
-function americanToImplied(odds) {
-  const o = parseFloat(odds);
-  if (isNaN(o)) return null;
-  return o > 0 ? 100/(o+100) : Math.abs(o)/(Math.abs(o)+100);
+// ══════════════════════════════════════════════════════
+// MATH HELPERS
+// ══════════════════════════════════════════════════════
+function americanToImplied(odds){
+  const o=parseFloat(odds);
+  if(isNaN(o)||o===0)return null;
+  return o>0?100/(o+100):Math.abs(o)/(Math.abs(o)+100);
 }
-function removeVig(i1,i2) { const t=i1+i2; return {f1:i1/t, f2:i2/t}; }
-function edgeTier(e) {
-  const p = e*100;
-  if (p<=0)   return {cls:"tier-none",  sl:"sl-none",  label:"NO EDGE", bar:"#ef4444"};
-  if (p<=2.5) return {cls:"tier-marg",  sl:"sl-marg",  label:"MARGINAL",bar:"#f59e0b"};
-  if (p<=5)   return {cls:"tier-good",  sl:"sl-good",  label:"GOOD",    bar:"#22c55e"};
-  return             {cls:"tier-strong",sl:"sl-strong", label:"STRONG",  bar:"#38bdf8"};
+function impliedToAmerican(p){
+  if(!p||p<=0||p>=1)return null;
+  return p>=0.5?Math.round(-(p/(1-p))*100):Math.round(((1-p)/p)*100);
 }
-function fmtOdds(v) { const n=parseFloat(v); if(isNaN(n)) return v; return (n>0?"+":"")+n; }
-function esc(s) { return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function removeVig(i1,i2){const t=i1+i2;return{f1:i1/t,f2:i2/t};}
 
-function pillHTML(edge) {
-  const t = edgeTier(edge);
-  const sign = edge>0?"+":"";
-  return `<span class="edge-pill ${t.cls}"><span class="edge-dot"></span><span class="edge-text">${t.label} ${sign}${(edge*100).toFixed(1)}%</span></span>`;
+// Kelly Criterion: f = (bp - q) / b
+// b = decimal odds - 1, p = win prob, q = 1-p
+function kellyFraction(winProb, americanOdds){
+  const o=parseFloat(americanOdds);
+  if(isNaN(o)||!winProb)return null;
+  const b=o>0?(o/100):(100/Math.abs(o));
+  const p=winProb, q=1-p;
+  const k=(b*p-q)/b;
+  return Math.max(0,k);
 }
 
-// ── State ──────────────────────────────────────────────────────────────────
-let games = [];
-function emptyGame() {
-  return {id:Date.now()+Math.random(), awayTeam:"", homeTeam:"", espnAway:"", espnHome:"", fdAway:"", fdHome:"", dkAway:"", dkHome:""};
-}
-function loadGames() {
-  try { const r=localStorage.getItem(STORAGE_KEY); if(!r) return null; const p=JSON.parse(r); return Array.isArray(p)&&p.length>0?p:null; } catch{return null;}
-}
-function saveGames() { try{localStorage.setItem(STORAGE_KEY,JSON.stringify(games));}catch{} }
+// Simple model: blend ESPN% + market consensus, adjust for park factor
+// Returns win probability for the away team
+function buildModelProb(g, espnA, marketImpliedAway){
+  if(!espnA)return null;
+  // Weight ESPN 40%, market consensus 60% (market is sharper)
+  const marketWeight = marketImpliedAway ? 0.6 : 0;
+  const espnWeight   = 1 - marketWeight;
+  let blended = espnA * espnWeight + (marketImpliedAway||espnA) * marketWeight;
 
-// ── Render ─────────────────────────────────────────────────────────────────
-// Track which input is focused so we don't destroy it mid-typing
-let focusedId = null;
-let focusedField = null;
+  // Park factor adjustment: away teams are slightly penalized at hitter-friendly parks
+  const pf = (PARK_FACTORS[g.homeTeam]||100) / 100;
+  // If park inflates runs (pf>1), home team gets a slight boost
+  const parkAdj = (pf - 1) * 0.03; // ~3% sensitivity
+  blended = blended - parkAdj;
 
-function render() {
+  // Clamp to reasonable range
+  return Math.min(0.85, Math.max(0.15, blended));
+}
+
+function edgeInfo(edge){
+  const p=edge*100;
+  const sign=p>0?"+":"";
+  const str=`${sign}${p.toFixed(1)}%`;
+  if(p<=0)   return{cls:"badge-none",  str};
+  if(p<=2.5) return{cls:"badge-marg",  str};
+  if(p<=5)   return{cls:"badge-good",  str};
+  return           {cls:"badge-strong",str};
+}
+function fmtOdds(v){const n=parseFloat(v);if(isNaN(n))return v;return(n>0?"+":"")+n;}
+function fmtPct(v){return v!==null&&!isNaN(v)?`${(v*100).toFixed(1)}%`:"—";}
+function fmtDollar(v){return v>=0?`+$${v.toFixed(2)}`:`-$${Math.abs(v).toFixed(2)}`;}
+function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+
+// ══════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════
+let games=[], betLog=[];
+let bankroll=parseFloat(localStorage.getItem(STORAGE_BANK)||"1000")||1000;
+
+function emptyGame(){
+  return{id:Date.now()+Math.random(),awayTeam:"",homeTeam:"",
+    espnAway:"",espnHome:"",_homeAutoFilled:false,
+    // book odds: object keyed by bookmaker key
+    awayOdds:{},homeOdds:{},
+    // pitcher data
+    awayPitcher:{name:"",era:"",fip:"",xfip:""},
+    homePitcher:{name:"",era:"",fip:"",xfip:""},
+  };
+}
+
+function loadGames(){
+  try{const r=localStorage.getItem(STORAGE_GAMES);if(!r)return null;const p=JSON.parse(r);return Array.isArray(p)&&p.length>0?p:null;}catch{return null;}
+}
+function saveGames(){try{localStorage.setItem(STORAGE_GAMES,JSON.stringify(games));}catch{}}
+function loadLog(){try{const r=localStorage.getItem(STORAGE_LOG);if(!r)return[];return JSON.parse(r)||[];}catch{return[];}}
+function saveLog(){try{localStorage.setItem(STORAGE_LOG,JSON.stringify(betLog));}catch{}}
+
+// ══════════════════════════════════════════════════════
+// FOCUS TRACKING
+// ══════════════════════════════════════════════════════
+let focusedCardId=null, focusedField=null, focusedSubField=null;
+
+// ══════════════════════════════════════════════════════
+// RENDER — ANALYSIS PAGE
+// ══════════════════════════════════════════════════════
+function render(){
   saveGames();
   renderCards();
   renderSummary();
 }
 
-function renderCards() {
-  const container = document.getElementById("cards-container");
-  // Rebuild all cards but restore focus after
-  container.innerHTML = "";
-  games.forEach(g => container.appendChild(buildCard(g)));
+function renderCards(){
+  const container=document.getElementById("cards-container");
+  container.innerHTML="";
+  games.forEach((g,idx)=>container.appendChild(buildCard(g,idx)));
 
-  // Restore focus if one was active
-  if (focusedId !== null && focusedField !== null) {
-    const inp = container.querySelector(`[data-id="${focusedId}"] [data-field="${focusedField}"]`);
-    if (inp) {
-      inp.focus();
-      // Move cursor to end
-      const len = inp.value.length;
-      inp.setSelectionRange(len, len);
+  if(focusedCardId!==null&&focusedField!==null){
+    let inp;
+    if(focusedSubField){
+      inp=container.querySelector(`[data-cardid="${focusedCardId}"] [data-field="${focusedField}"][data-sub="${focusedSubField}"]`);
+    } else {
+      inp=container.querySelector(`[data-cardid="${focusedCardId}"] [data-field="${focusedField}"]`);
     }
+    if(inp){inp.focus();const l=inp.value.length;try{inp.setSelectionRange(l,l);}catch{}}
   }
 }
 
-function buildCard(g) {
-  // Compute edge values for display
-  const fdIA=americanToImplied(g.fdAway), fdIH=americanToImplied(g.fdHome);
-  const dkIA=americanToImplied(g.dkAway), dkIH=americanToImplied(g.dkHome);
-  const fdFair=(fdIA&&fdIH)?removeVig(fdIA,fdIH):null;
-  const dkFair=(dkIA&&dkIH)?removeVig(dkIA,dkIH):null;
+function bestLineForTeam(g, side){
+  // side = "away" | "home"
+  const oddsObj = side==="away" ? g.awayOdds : g.homeOdds;
+  let best=null, bestBook=null, bestOdds=null;
+  for(const [book,odds] of Object.entries(oddsObj)){
+    if(book===PINNACLE_KEY)continue;
+    const imp=americanToImplied(odds);
+    if(imp===null)continue;
+    // Best line for bettor = HIGHEST odds (lowest implied prob)
+    if(best===null||imp<best){best=imp;bestBook=book;bestOdds=odds;}
+  }
+  return{implied:best,book:bestBook,odds:bestOdds};
+}
+
+function pinnacleForTeam(g,side){
+  const oddsObj=side==="away"?g.awayOdds:g.homeOdds;
+  const o=oddsObj[PINNACLE_KEY];
+  if(!o)return null;
+  return{implied:americanToImplied(o),odds:o};
+}
+
+function marketConsensusImplied(g,side){
+  // Average of all non-pinnacle books, vig-removed
+  const awayObj=g.awayOdds, homeObj=g.homeOdds;
+  const books=Object.keys(awayObj).filter(b=>b!==PINNACLE_KEY&&homeObj[b]);
+  if(!books.length)return null;
+  let total=0,count=0;
+  books.forEach(b=>{
+    const ia=americanToImplied(awayObj[b]),ih=americanToImplied(homeObj[b]);
+    if(!ia||!ih)return;
+    const fair=removeVig(ia,ih);
+    total+=(side==="away"?fair.f1:fair.f2);
+    count++;
+  });
+  return count>0?total/count:null;
+}
+
+function buildCard(g,idx){
+  const card=document.createElement("div");
+  card.className="game-card";
+  card.dataset.cardid=g.id;
+
   const espnA=parseFloat(g.espnAway)/100||null;
   const espnH=parseFloat(g.espnHome)/100||null;
-  const fdEA=(espnA&&fdFair)?espnA-fdFair.f1:null;
-  const fdEH=(espnH&&fdFair)?espnH-fdFair.f2:null;
-  const dkEA=(espnA&&dkFair)?espnA-dkFair.f1:null;
-  const dkEH=(espnH&&dkFair)?espnH-dkFair.f2:null;
-  const hasEdge = fdEA!==null||dkEA!==null;
 
-  const edgePanelHTML = hasEdge ? `
-    <div class="edge-panel">
-      ${buildEdgeCell(g.awayTeam||"Away", fdEA, dkEA)}
-      ${buildEdgeCell(g.homeTeam||"Home", fdEH, dkEH)}
-    </div>` : "";
+  // Best lines
+  const bestAway=bestLineForTeam(g,"away");
+  const bestHome=bestLineForTeam(g,"home");
 
-  const card = document.createElement("div");
-  card.className = "game-card";
-  card.dataset.id = g.id;
+  // Pinnacle
+  const pinAway=pinnacleForTeam(g,"away");
+  const pinHome=pinnacleForTeam(g,"home");
+  const hasPinnacle=!!(pinAway||pinHome);
 
-  card.innerHTML = `
-    <!-- Team name row -->
-    <div class="team-header">
-      <div class="field-group">
-        <span class="field-label label-gray">AWAY</span>
-        <input type="text" data-field="awayTeam" value="${esc(g.awayTeam)}" placeholder="NYY" autocomplete="off" autocorrect="off" spellcheck="false" />
+  // Market consensus (vig-removed)
+  const consensusA=marketConsensusImplied(g,"away");
+  const consensusH=marketConsensusImplied(g,"home");
+
+  // Model probability
+  const modelA=buildModelProb(g,espnA,consensusA);
+  const modelH=modelA!==null?1-modelA:null;
+
+  // Edges vs best book
+  function edgeVsBest(modelProb, bestImplied){
+    if(modelProb===null||bestImplied===null)return null;
+    // Vig-remove the best line using both sides
+    const oppImp=1-bestImplied; // approximate
+    const fair=removeVig(bestImplied,oppImp);
+    return modelProb-fair.f1;
+  }
+
+  // Pinnacle CLV flag
+  const pinFlagA=pinAway&&bestAway.implied&&bestAway.implied<pinAway.implied?"BEATING PIN":"";
+  const pinFlagH=pinHome&&bestHome.implied&&bestHome.implied<pinHome.implied?"BEATING PIN":"";
+
+  function impliedBadgeHTML(modelProb, bestLine, pinLine, side){
+    if(!bestLine||bestLine.implied===null)return"";
+    const impPct=(bestLine.implied*100).toFixed(1);
+    let badgeHTML="";
+    if(modelProb!==null){
+      // Use full book pair for vig removal
+      const awayI=americanToImplied(g.awayOdds[bestLine.book]);
+      const homeI=americanToImplied(g.homeOdds[bestLine.book]);
+      let fairProb;
+      if(awayI&&homeI){
+        const fair=removeVig(awayI,homeI);
+        fairProb=side==="away"?fair.f1:fair.f2;
+      } else {
+        fairProb=bestLine.implied;
+      }
+      const edge=modelProb-fairProb;
+      const ei=edgeInfo(edge);
+      badgeHTML=`<span class="edge-badge ${ei.cls}">${ei.str}</span>`;
+    }
+    let pinHTML="";
+    if(pinLine&&bestLine.implied<pinLine.implied){
+      pinHTML=`<span class="edge-badge badge-pin">▲ BEATS PIN</span>`;
+    }
+    return`<div class="implied-row">
+      <span class="implied-text">Implied: ${impPct}%</span>
+      ${badgeHTML}${pinHTML}
+    </div>`;
+  }
+
+  // Kelly for best away and home
+  function kellyHTML(modelProb, bestLine){
+    if(!modelProb||!bestLine||!bestLine.odds)return"";
+    const fraction=parseFloat(document.getElementById("kelly-select").value)||0.5;
+    const bank=parseFloat(document.getElementById("bankroll-input").value)||bankroll;
+    const k=kellyFraction(modelProb,bestLine.odds);
+    if(k===null||k<=0)return"";
+    const betAmt=(k*fraction*bank).toFixed(2);
+    const pctAmt=(k*fraction*100).toFixed(1);
+    return`<div class="kelly-row">
+      <span class="kelly-label">KELLY:</span>
+      <span class="kelly-amount">$${betAmt}</span>
+      <span class="kelly-label">(${pctAmt}% of bankroll)</span>
+    </div>`;
+  }
+
+  // Book rows for odds table
+  function bookRowsHTML(side){
+    const oddsObj=side==="away"?g.awayOdds:g.homeOdds;
+    const oppObj =side==="away"?g.homeOdds:g.awayOdds;
+    const displayBooks=["fanduel","draftkings","betmgm","caesars","espnbet","bet365",PINNACLE_KEY];
+    const labels={"fanduel":"FanDuel","draftkings":"DraftKings","betmgm":"BetMGM",
+                  "caesars":"Caesars","espnbet":"ESPN Bet","bet365":"Bet365","pinnacle":"Pinnacle ⚡"};
+    return displayBooks.map(book=>{
+      const val=oddsObj[book]||"";
+      const oppVal=oppObj[book]||"";
+      const isPin=book===PINNACLE_KEY;
+      const color=isPin?"#f59e0b":val?((side==="away")?"#86efac":"#c4b5fd"):"#e5e7eb";
+      const fmted=val?fmtOdds(val):"";
+      return`<div class="form-field" style="margin-bottom:4px;">
+        <label style="color:${isPin?"#f59e0b":"#374151"}">${labels[book]||book}</label>
+        <input type="text" inputmode="numeric" data-field="bookodds" data-side="${side}" data-book="${book}"
+          value="${esc(fmted)}" placeholder="—" autocomplete="off"
+          style="color:${color};font-size:13px;padding:6px 9px;" />
+      </div>`;
+    }).join("");
+  }
+
+  card.innerHTML=`
+    <div class="card-topbar">
+      <span class="game-number">GAME ${idx+1}</span>
+      <div class="card-topbar-right">
+        ${hasPinnacle?'<span class="pinnacle-flag" style="display:inline">⚡ PINNACLE</span>':''}
+        <button class="btn-remove" data-remove="${g.id}">✕</button>
       </div>
-      <div class="at-sign">@</div>
-      <div class="field-group">
-        <span class="field-label label-gray">HOME</span>
-        <input type="text" data-field="homeTeam" value="${esc(g.homeTeam)}" placeholder="BOS" autocomplete="off" autocorrect="off" spellcheck="false" />
-      </div>
-      <button class="btn-remove" data-remove="${g.id}">✕</button>
     </div>
 
-    <!-- Two-column data grid -->
-    <div class="data-grid">
-      <!-- AWAY column -->
-      <div class="data-col">
-        <div class="col-header">AWAY</div>
-        <div class="field-group">
-          <span class="field-label label-espn">ESPN WIN %</span>
-          <input type="text" inputmode="decimal" data-field="espnAway" value="${esc(g.espnAway)}" placeholder="47" autocomplete="off" />
-        </div>
-        <div class="field-group">
-          <span class="field-label label-fd">FANDUEL ML</span>
-          <input type="text" inputmode="numeric" data-field="fdAway" class="${g.fdAway?'fd-filled':''}" value="${g.fdAway?fmtOdds(g.fdAway):''}" placeholder="-140" autocomplete="off" />
-        </div>
-        <div class="field-group">
-          <span class="field-label label-dk">DRAFTKINGS ML</span>
-          <input type="text" inputmode="numeric" data-field="dkAway" class="${g.dkAway?'dk-filled':''}" value="${g.dkAway?fmtOdds(g.dkAway):''}" placeholder="-135" autocomplete="off" />
-        </div>
+    <!-- Teams -->
+    <div class="team-row">
+      <div>
+        <span class="team-label">AWAY TEAM</span>
+        <input type="text" data-field="awayTeam" value="${esc(g.awayTeam)}" placeholder="NYY" autocomplete="off" autocorrect="off" spellcheck="false"/>
       </div>
+      <div class="at-sym">@</div>
+      <div>
+        <span class="team-label">HOME TEAM</span>
+        <input type="text" data-field="homeTeam" value="${esc(g.homeTeam)}" placeholder="BOS" autocomplete="off" autocorrect="off" spellcheck="false"/>
+      </div>
+    </div>
 
-      <!-- HOME column -->
-      <div class="data-col">
-        <div class="col-header">HOME</div>
-        <div class="field-group">
-          <span class="field-label label-espn">ESPN WIN %</span>
-          <input type="text" inputmode="decimal" data-field="espnHome" value="${esc(g.espnHome)}" placeholder="53" autocomplete="off" />
+    <!-- ESPN -->
+    <div class="section-block">
+      <div class="section-header">
+        <span class="section-dot dot-espn"></span>
+        <span class="section-title title-espn">ESPN WIN PROBABILITY</span>
+      </div>
+      <div class="two-col">
+        <div>
+          <span class="input-sublabel">${esc(g.awayTeam)||"AWAY"} WIN %</span>
+          <input type="text" inputmode="decimal" data-field="espnAway" value="${esc(g.espnAway)}" placeholder="e.g. 45.2" autocomplete="off"/>
         </div>
-        <div class="field-group">
-          <span class="field-label label-fd">FANDUEL ML</span>
-          <input type="text" inputmode="numeric" data-field="fdHome" class="${g.fdHome?'fd-filled':''}" value="${g.fdHome?fmtOdds(g.fdHome):''}" placeholder="+120" autocomplete="off" />
-        </div>
-        <div class="field-group">
-          <span class="field-label label-dk">DRAFTKINGS ML</span>
-          <input type="text" inputmode="numeric" data-field="dkHome" class="${g.dkHome?'dk-filled':''}" value="${g.dkHome?fmtOdds(g.dkHome):''}" placeholder="+115" autocomplete="off" />
+        <div>
+          <span class="input-sublabel">${esc(g.homeTeam)||"HOME"} WIN %</span>
+          <input type="text" inputmode="decimal" data-field="espnHome" value="${esc(g.espnHome)}" placeholder="auto-fills" autocomplete="off"/>
         </div>
       </div>
     </div>
 
-    ${edgePanelHTML}
+    <!-- Model output -->
+    ${(modelA!==null)?`
+    <div class="section-block">
+      <div class="section-header">
+        <span class="section-dot dot-model"></span>
+        <span class="section-title title-model">MODEL PROBABILITY</span>
+      </div>
+      <div class="model-row">
+        <div class="model-cell">
+          <div class="model-label">${esc(g.awayTeam)||"AWAY"}</div>
+          <div class="model-value">${(modelA*100).toFixed(1)}%</div>
+          <div class="model-sub">ESPN ${(espnA*100).toFixed(1)}% · Park adj.</div>
+        </div>
+        <div class="model-cell">
+          <div class="model-label">${esc(g.homeTeam)||"HOME"}</div>
+          <div class="model-value">${(modelH*100).toFixed(1)}%</div>
+          <div class="model-sub">ESPN ${(espnH*100).toFixed(1)}% · Park adj.</div>
+        </div>
+      </div>
+    </div>`:""}
+
+    <!-- Pitcher inputs -->
+    <div class="section-block">
+      <div class="section-header">
+        <span class="section-dot" style="background:#6b7280"></span>
+        <span class="section-title" style="color:#6b7280">STARTING PITCHERS (optional)</span>
+      </div>
+      <div class="two-col">
+        <div>
+          <span class="input-sublabel">${esc(g.awayTeam)||"AWAY"} STARTER</span>
+          <input type="text" data-field="pitcher" data-side="away" data-sub="name" value="${esc(g.awayPitcher?.name||"")}" placeholder="Name" autocomplete="off" style="margin-bottom:4px;"/>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:4px;">
+            <div><span class="input-sublabel">ERA</span><input type="text" inputmode="decimal" data-field="pitcher" data-side="away" data-sub="era" value="${esc(g.awayPitcher?.era||"")}" placeholder="3.50" autocomplete="off" style="font-size:12px;padding:5px 7px;"/></div>
+            <div><span class="input-sublabel">FIP</span><input type="text" inputmode="decimal" data-field="pitcher" data-side="away" data-sub="fip" value="${esc(g.awayPitcher?.fip||"")}" placeholder="3.80" autocomplete="off" style="font-size:12px;padding:5px 7px;"/></div>
+            <div><span class="input-sublabel">xFIP</span><input type="text" inputmode="decimal" data-field="pitcher" data-side="away" data-sub="xfip" value="${esc(g.awayPitcher?.xfip||"")}" placeholder="3.90" autocomplete="off" style="font-size:12px;padding:5px 7px;"/></div>
+          </div>
+        </div>
+        <div>
+          <span class="input-sublabel">${esc(g.homeTeam)||"HOME"} STARTER</span>
+          <input type="text" data-field="pitcher" data-side="home" data-sub="name" value="${esc(g.homePitcher?.name||"")}" placeholder="Name" autocomplete="off" style="margin-bottom:4px;"/>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-top:4px;">
+            <div><span class="input-sublabel">ERA</span><input type="text" inputmode="decimal" data-field="pitcher" data-side="home" data-sub="era" value="${esc(g.homePitcher?.era||"")}" placeholder="3.50" autocomplete="off" style="font-size:12px;padding:5px 7px;"/></div>
+            <div><span class="input-sublabel">FIP</span><input type="text" inputmode="decimal" data-field="pitcher" data-side="home" data-sub="fip" value="${esc(g.homePitcher?.fip||"")}" placeholder="3.80" autocomplete="off" style="font-size:12px;padding:5px 7px;"/></div>
+            <div><span class="input-sublabel">xFIP</span><input type="text" inputmode="decimal" data-field="pitcher" data-side="home" data-sub="xfip" value="${esc(g.homePitcher?.xfip||"")}" placeholder="3.90" autocomplete="off" style="font-size:12px;padding:5px 7px;"/></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DraftKings -->
+    <div class="section-block">
+      <div class="section-header">
+        <span class="section-dot dot-dk"></span>
+        <span class="section-title title-dk">DRAFTKINGS MONEYLINE</span>
+      </div>
+      <div class="two-col">
+        <div>
+          <span class="input-sublabel">${esc(g.awayTeam)||"AWAY"}</span>
+          <input type="text" inputmode="numeric" data-field="bookodds" data-side="away" data-book="draftkings"
+            value="${g.awayOdds?.draftkings?fmtOdds(g.awayOdds.draftkings):''}" placeholder="-150" autocomplete="off"
+            style="color:${g.awayOdds?.draftkings?'#86efac':'#e5e7eb'}"/>
+          ${impliedBadgeHTML(modelA,bestAway,pinAway,"away")}
+          ${kellyHTML(modelA,bestAway)}
+        </div>
+        <div>
+          <span class="input-sublabel">${esc(g.homeTeam)||"HOME"}</span>
+          <input type="text" inputmode="numeric" data-field="bookodds" data-side="home" data-book="draftkings"
+            value="${g.homeOdds?.draftkings?fmtOdds(g.homeOdds.draftkings):''}" placeholder="-150" autocomplete="off"
+            style="color:${g.homeOdds?.draftkings?'#86efac':'#e5e7eb'}"/>
+          ${impliedBadgeHTML(modelH,bestHome,pinHome,"home")}
+          ${kellyHTML(modelH,bestHome)}
+        </div>
+      </div>
+    </div>
+
+    <!-- FanDuel -->
+    <div class="section-block">
+      <div class="section-header">
+        <span class="section-dot dot-fd"></span>
+        <span class="section-title title-fd">FANDUEL MONEYLINE</span>
+      </div>
+      <div class="two-col">
+        <div>
+          <span class="input-sublabel">${esc(g.awayTeam)||"AWAY"}</span>
+          <input type="text" inputmode="numeric" data-field="bookodds" data-side="away" data-book="fanduel"
+            value="${g.awayOdds?.fanduel?fmtOdds(g.awayOdds.fanduel):''}" placeholder="-150" autocomplete="off"
+            style="color:${g.awayOdds?.fanduel?'#c4b5fd':'#e5e7eb'}"/>
+        </div>
+        <div>
+          <span class="input-sublabel">${esc(g.homeTeam)||"HOME"}</span>
+          <input type="text" inputmode="numeric" data-field="bookodds" data-side="home" data-book="fanduel"
+            value="${g.homeOdds?.fanduel?fmtOdds(g.homeOdds.fanduel):''}" placeholder="-150" autocomplete="off"
+            style="color:${g.homeOdds?.fanduel?'#c4b5fd':'#e5e7eb'}"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- Other books + Pinnacle -->
+    <div class="section-block">
+      <div class="section-header">
+        <span class="section-dot dot-best"></span>
+        <span class="section-title title-best">ALL BOOKS + PINNACLE BENCHMARK</span>
+      </div>
+      ${bestAway.book?`<div class="best-line-note">BEST AWAY: ${bestAway.book.toUpperCase()} (${fmtOdds(bestAway.odds)}) · BEST HOME: ${bestHome.book?bestHome.book.toUpperCase():"—"} (${fmtOdds(bestHome.odds)})</div>`:""}
+      <div class="two-col">
+        <div>${bookRowsHTML("away")}</div>
+        <div>${bookRowsHTML("home")}</div>
+      </div>
+    </div>
   `;
 
-  // ── Input listeners ──
-  card.querySelectorAll("input").forEach(input => {
-    const field = input.dataset.field;
+  // ── Wire inputs ────────────────────────────────────────────────────────
+  card.querySelectorAll("input").forEach(input=>{
+    const field=input.dataset.field;
+    const side=input.dataset.side;
+    const book=input.dataset.book;
+    const sub=input.dataset.sub;
 
-    // Track focus — don't re-render while typing
-    input.addEventListener("focus", () => {
-      focusedId = g.id;
-      focusedField = field;
+    input.addEventListener("focus",()=>{
+      focusedCardId=g.id; focusedField=field; focusedSubField=sub||null;
     });
 
-    // Live update the game state on every keystroke but DON'T re-render cards
-    // (only re-render summary so numbers update live there too)
-    input.addEventListener("input", () => {
-      const game = games.find(x => x.id == g.id);
-      if (!game) return;
-      game[field] = input.value;
-      // Just update summary silently without rebuilding cards
+    input.addEventListener("input",()=>{
+      const game=games.find(x=>x.id==g.id);
+      if(!game)return;
+      if(field==="bookodds"){
+        if(!game.awayOdds)game.awayOdds={};
+        if(!game.homeOdds)game.homeOdds={};
+        if(side==="away")game.awayOdds[book]=input.value;
+        else game.homeOdds[book]=input.value;
+      } else if(field==="pitcher"){
+        const obj=side==="away"?"awayPitcher":"homePitcher";
+        if(!game[obj])game[obj]={};
+        game[obj][sub]=input.value;
+      } else {
+        game[field]=input.value;
+      }
       saveGames();
       renderSummary();
     });
 
-    // On blur: auto-fill home ESPN %, then do full re-render
-    input.addEventListener("blur", () => {
-      focusedId = null;
-      focusedField = null;
-
-      const game = games.find(x => x.id == g.id);
-      if (!game) return;
-      game[field] = input.value;
-
-      // Auto-fill home ESPN % when away is entered
-      if (field === "espnAway") {
-        const awayVal = parseFloat(input.value);
-        if (!isNaN(awayVal) && awayVal > 0 && awayVal < 100) {
-          const homeVal = (100 - awayVal).toFixed(1).replace(/\.0$/, "");
-          // Only auto-fill if home is empty or was previously auto-filled
-          if (!game.espnHome || game._homeAutoFilled) {
-            game.espnHome = homeVal;
-            game._homeAutoFilled = true;
+    input.addEventListener("blur",()=>{
+      focusedCardId=null; focusedField=null; focusedSubField=null;
+      const game=games.find(x=>x.id==g.id);
+      if(!game)return;
+      if(field==="bookodds"){
+        if(!game.awayOdds)game.awayOdds={};
+        if(!game.homeOdds)game.homeOdds={};
+        if(side==="away")game.awayOdds[book]=input.value;
+        else game.homeOdds[book]=input.value;
+      } else if(field==="pitcher"){
+        const obj=side==="away"?"awayPitcher":"homePitcher";
+        if(!game[obj])game[obj]={};
+        game[obj][sub]=input.value;
+      } else {
+        game[field]=input.value;
+        if(field==="espnAway"){
+          const v=parseFloat(input.value);
+          if(!isNaN(v)&&v>0&&v<100&&(!game.espnHome||game._homeAutoFilled)){
+            game.espnHome=(100-v).toFixed(1).replace(/\.0$/,"");
+            game._homeAutoFilled=true;
           }
         }
+        if(field==="espnHome")game._homeAutoFilled=false;
       }
-      // If home is manually edited, mark it as no longer auto-filled
-      if (field === "espnHome") {
-        game._homeAutoFilled = false;
-      }
-
       render();
     });
   });
 
-  // Remove button
-  card.querySelector("[data-remove]").addEventListener("click", () => {
-    if (games.length > 1) games = games.filter(x => x.id != g.id);
+  card.querySelector("[data-remove]").addEventListener("click",()=>{
+    if(games.length>1)games=games.filter(x=>x.id!=g.id);
     render();
   });
 
   return card;
 }
 
-function buildEdgeCell(label, fd, dk) {
-  const fdRow = fd!==null?`<div class="edge-row"><span class="book-tag book-tag-fd">FD</span>${pillHTML(fd)}</div>`:"";
-  const dkRow = dk!==null?`<div class="edge-row"><span class="book-tag book-tag-dk">DK</span>${pillHTML(dk)}</div>`:"";
-  if(!fdRow&&!dkRow) return "";
-  return `<div class="edge-cell"><div class="edge-cell-label">${esc(label)}</div>${fdRow}${dkRow}</div>`;
-}
+// ══════════════════════════════════════════════════════
+// SUMMARY TABLE
+// ══════════════════════════════════════════════════════
+function renderSummary(){
+  const rows=[];
+  const fraction=parseFloat(document.getElementById("kelly-select").value)||0.5;
+  const bank=parseFloat(document.getElementById("bankroll-input").value)||bankroll;
 
-function renderSummary() {
-  const allEdges = [];
-  for (const g of games) {
-    if (!g.awayTeam && !g.homeTeam) continue;
-    const fdIA=americanToImplied(g.fdAway), fdIH=americanToImplied(g.fdHome);
-    const dkIA=americanToImplied(g.dkAway), dkIH=americanToImplied(g.dkHome);
-    const fdFair=(fdIA&&fdIH)?removeVig(fdIA,fdIH):null;
-    const dkFair=(dkIA&&dkIH)?removeVig(dkIA,dkIH):null;
+  for(const g of games){
+    if(!g.awayTeam&&!g.homeTeam)continue;
     const espnA=parseFloat(g.espnAway)/100||null;
     const espnH=parseFloat(g.espnHome)/100||null;
+    const consensusA=marketConsensusImplied(g,"away");
+    const consensusH=marketConsensusImplied(g,"home");
+    const modelA=buildModelProb(g,espnA,consensusA);
+    const modelH=modelA!==null?1-modelA:null;
     const matchup=`${g.awayTeam||"Away"} @ ${g.homeTeam||"Home"}`;
-    if(espnA&&fdFair) allEdges.push({label:g.awayTeam||"Away",matchup,espn:espnA,fdEdge:espnA-fdFair.f1,dkEdge:dkFair?espnA-dkFair.f1:null,fdOdds:g.fdAway,dkOdds:g.dkAway});
-    if(espnH&&fdFair) allEdges.push({label:g.homeTeam||"Home",matchup,espn:espnH,fdEdge:espnH-fdFair.f2,dkEdge:dkFair?espnH-dkFair.f2:null,fdOdds:g.fdHome,dkOdds:g.dkHome});
+    const pinA=pinnacleForTeam(g,"away");
+    const pinH=pinnacleForTeam(g,"home");
+
+    [["away",g.awayTeam||"Away",modelA,espnA,pinA],
+     ["home",g.homeTeam||"Home",modelH,espnH,pinH]].forEach(([side,label,modelProb,espnProb,pin])=>{
+      if(!modelProb)return;
+      const best=bestLineForTeam(g,side);
+      if(!best.implied)return;
+
+      // Vig-remove
+      const oppBest=bestLineForTeam(g,side==="away"?"home":"away");
+      let fairProb=best.implied;
+      if(oppBest.implied){
+        const v=removeVig(best.implied,oppBest.implied);
+        fairProb=side==="away"?v.f1:v.f2;
+      }
+      const edge=modelProb-fairProb;
+      const k=kellyFraction(modelProb,best.odds);
+      const betAmt=k&&k>0?(k*fraction*bank):null;
+
+      // Pinnacle comparison
+      let vsPin="—";
+      if(pin){
+        const pinFair=removeVig(pin.implied,1-pin.implied).f1;
+        const pinEdge=modelProb-pinFair;
+        vsPin=pinEdge>=0?"✓ +EV":"✗";
+      }
+
+      rows.push({label,matchup,espn:espnProb,model:modelProb,edge,
+        bestBook:best.book,bestOdds:best.odds,betAmt,vsPin,
+        gameId:g.id,side});
+    });
   }
 
-  const sorted = allEdges
-    .map(e=>({...e,bestEdge:Math.max(e.fdEdge??-99,e.dkEdge??-99)}))
-    .sort((a,b)=>b.bestEdge-a.bestEdge);
+  rows.sort((a,b)=>b.edge-a.edge);
 
   const wrap=document.getElementById("summary-wrap");
   const body=document.getElementById("summary-body");
-  const hdr=document.getElementById("summary-header");
-
-  if(sorted.length===0){wrap.style.display="none";return;}
+  if(!rows.length){wrap.style.display="none";return;}
   wrap.style.display="block";
-  hdr.textContent=`TODAY'S EDGE SUMMARY · ${sorted.length} BET${sorted.length!==1?"S":""} RANKED`;
   body.innerHTML="";
 
-  sorted.forEach((e,i)=>{
-    const fdBetter=(e.fdEdge??-99)>=(e.dkEdge??-99);
-    const bestEdge=fdBetter?e.fdEdge:e.dkEdge;
-    const bestBook=fdBetter?"FanDuel":"DraftKings";
-    const bestOdds=fdBetter?e.fdOdds:e.dkOdds;
-    const t=edgeTier(bestEdge);
-    const oddsStr=bestOdds?fmtOdds(bestOdds):"—";
-    const bookColor=bestBook==="FanDuel"?"#3b82f6":"#22c55e";
-    const bookShort=bestBook==="FanDuel"?"FD":"DK";
+  rows.forEach((r,i)=>{
+    const ei=edgeInfo(r.edge);
+    const bookColor=r.bestBook==="fanduel"?"#a855f7":r.bestBook==="draftkings"?"#22c55e":"#9ca3af";
+    const modelColor=r.model>0.55?"#4ade80":r.model<0.45?"#f87171":"#9ca3af";
+    const vsPinColor=r.vsPin==="✓ +EV"?"#22c55e":r.vsPin==="✗"?"#f87171":"#374151";
     const tr=document.createElement("tr");
-    tr.className=t.sl;
-    tr.style.borderBottom="1px solid #0d1420";
     tr.style.background=i%2===0?"transparent":"#ffffff03";
     tr.innerHTML=`
-      <td style="color:#374151;font-size:11px;">${String(i+1).padStart(2,"0")}</td>
-      <td style="color:#f9fafb;font-weight:700;font-size:13px;">${esc(e.label)}</td>
-      <td style="color:#4b5563;font-size:11px;">${esc(e.matchup)}</td>
-      <td style="color:#9ca3af;font-size:12px;">${(e.espn*100).toFixed(1)}%</td>
-      <td style="font-size:11px;font-weight:700;color:${bookColor};">${bookShort}</td>
-      <td style="color:#6b7280;font-size:12px;">${oddsStr}</td>
-      <td>${pillHTML(bestEdge)}</td>`;
+      <td style="color:#4b5563;font-size:11px;">${esc(r.matchup)}</td>
+      <td style="color:#f9fafb;font-weight:700;">${esc(r.label)}</td>
+      <td style="color:#f97316;font-weight:700;">${r.espn!==null?`${(r.espn*100).toFixed(1)}%`:"—"}</td>
+      <td style="color:${modelColor};font-weight:700;">${(r.model*100).toFixed(1)}%</td>
+      <td style="color:${bookColor};font-weight:700;font-size:11px;">${r.bestBook?r.bestBook.toUpperCase():"—"}</td>
+      <td style="color:#6b7280;">${r.bestOdds?fmtOdds(r.bestOdds):"—"}</td>
+      <td><span class="edge-badge ${ei.cls}">${ei.str}</span></td>
+      <td style="color:#38bdf8;font-weight:700;">${r.betAmt?`$${r.betAmt.toFixed(2)}`:"—"}</td>
+      <td style="color:${vsPinColor};font-size:11px;font-weight:700;">${r.vsPin}</td>
+      <td><button class="log-btn" data-log='${JSON.stringify({matchup:r.matchup,team:r.label,book:r.bestBook,odds:r.bestOdds,espn:r.espn?+(r.espn*100).toFixed(1):null,model:r.model?+(r.model*100).toFixed(1):null,edge:+(r.edge*100).toFixed(1)})}'>LOG</button></td>
+    `;
     body.appendChild(tr);
+  });
+
+  // Wire log buttons
+  body.querySelectorAll(".log-btn").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const d=JSON.parse(btn.dataset.log);
+      prefillLogForm(d);
+      switchTab("log");
+    });
   });
 }
 
-// ── Fetch odds ─────────────────────────────────────────────────────────────
-async function fetchOdds() {
+// ══════════════════════════════════════════════════════
+// FETCH ODDS
+// ══════════════════════════════════════════════════════
+async function fetchOdds(){
   const btn=document.getElementById("btn-fetch");
-  const reqLeft=document.getElementById("req-remaining");
   btn.disabled=true; btn.textContent="FETCHING...";
-  setStatus("FETCHING ODDS...", null);
-  try {
-    const url=`https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h&oddsFormat=american&bookmakers=${BOOKMAKERS}`;
-    const res=await fetch(url);
-    const remaining=res.headers.get("x-requests-remaining");
-    if(remaining){reqLeft.style.display="inline";reqLeft.textContent=remaining+" REQ LEFT";}
-    if(!res.ok){const txt=await res.text();setStatus("⚠ API ERROR "+res.status+" — "+txt.slice(0,60),false);return;}
-    const events=await res.json();
-    if(!Array.isArray(events)||events.length===0){setStatus("⚠ NO GAMES FOUND — ENTER MANUALLY",false);return;}
-    games=events.map(ev=>{
-      const awayName=ev.away_team, homeName=ev.home_team;
-      let fdAway=null,fdHome=null,dkAway=null,dkHome=null;
+  setStatus("FETCHING ALL BOOKS + PINNACLE...",null);
+  try{
+    // Fetch US books
+    const usUrl=`https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h&oddsFormat=american&bookmakers=${US_BOOKS}`;
+    // Fetch Pinnacle (eu region)
+    const pinUrl=`https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h&oddsFormat=american&bookmakers=pinnacle`;
+
+    const [usRes,pinRes]=await Promise.all([fetch(usUrl),fetch(pinUrl)]);
+    const remaining=usRes.headers.get("x-requests-remaining");
+    if(remaining){const el=document.getElementById("req-remaining");el.style.display="inline";el.textContent=remaining+" REQ LEFT";}
+
+    if(!usRes.ok){const t=await usRes.text();setStatus("⚠ ERROR "+usRes.status,false);return;}
+    const usEvents=await usRes.json();
+    const pinEvents=pinRes.ok?await pinRes.json():[];
+
+    // Build pinnacle lookup
+    const pinLookup={};
+    for(const ev of pinEvents){
+      const key=`${ev.away_team}|${ev.home_team}`;
+      for(const bm of(ev.bookmakers||[])){
+        if(bm.key!=="pinnacle")continue;
+        const h2h=(bm.markets||[]).find(m=>m.key==="h2h");
+        if(!h2h)continue;
+        const aO=(h2h.outcomes||[]).find(o=>o.name===ev.away_team);
+        const hO=(h2h.outcomes||[]).find(o=>o.name===ev.home_team);
+        if(aO&&hO)pinLookup[key]={away:Math.round(aO.price),home:Math.round(hO.price)};
+      }
+    }
+
+    if(!Array.isArray(usEvents)||!usEvents.length){setStatus("⚠ NO GAMES",false);return;}
+
+    games=usEvents.map(ev=>{
+      const aN=ev.away_team,hN=ev.home_team;
+      const awayOdds={}, homeOdds={};
       for(const bm of(ev.bookmakers||[])){
         const h2h=(bm.markets||[]).find(m=>m.key==="h2h");
-        if(!h2h) continue;
-        const awayO=(h2h.outcomes||[]).find(o=>o.name===awayName);
-        const homeO=(h2h.outcomes||[]).find(o=>o.name===homeName);
-        if(!awayO||!homeO) continue;
-        if(bm.key==="fanduel")   {fdAway=Math.round(awayO.price);fdHome=Math.round(homeO.price);}
-        if(bm.key==="draftkings"){dkAway=Math.round(awayO.price);dkHome=Math.round(homeO.price);}
+        if(!h2h)continue;
+        const aO=(h2h.outcomes||[]).find(o=>o.name===aN);
+        const hO=(h2h.outcomes||[]).find(o=>o.name===hN);
+        if(!aO||!hO)continue;
+        awayOdds[bm.key]=Math.round(aO.price);
+        homeOdds[bm.key]=Math.round(hO.price);
       }
-      return {
+      const pinKey=`${aN}|${hN}`;
+      if(pinLookup[pinKey]){
+        awayOdds[PINNACLE_KEY]=pinLookup[pinKey].away;
+        homeOdds[PINNACLE_KEY]=pinLookup[pinKey].home;
+      }
+      return{
         id:Date.now()+Math.random(),
-        awayTeam:teamAbbr(awayName), homeTeam:teamAbbr(homeName),
-        espnAway:"", espnHome:"", _homeAutoFilled:false,
-        fdAway:fdAway!=null?String(fdAway):"", fdHome:fdHome!=null?String(fdHome):"",
-        dkAway:dkAway!=null?String(dkAway):"", dkHome:dkHome!=null?String(dkHome):"",
+        awayTeam:teamAbbr(aN),homeTeam:teamAbbr(hN),
+        espnAway:"",espnHome:"",_homeAutoFilled:false,
+        awayOdds,homeOdds,
+        awayPitcher:{name:"",era:"",fip:"",xfip:""},
+        homePitcher:{name:"",era:"",fip:"",xfip:""},
       };
     });
     render();
-    setStatus(`✓ ${games.length} GAMES · ENTER ESPN % TO SEE EDGE`, true);
-  } catch(err){setStatus("⚠ FETCH FAILED — "+err.message.slice(0,50),false);}
+    setStatus(`✓ ${games.length} GAMES · ${Object.keys(games[0]?.awayOdds||{}).length} BOOKS`,true);
+  }catch(err){setStatus("⚠ FETCH FAILED — "+err.message.slice(0,40),false);}
   btn.disabled=false; btn.textContent="⚡ FETCH ODDS";
 }
 
-function setStatus(msg, ok) {
+function setStatus(msg,ok){
   const el=document.getElementById("fetch-status");
   el.style.display="inline";
-  el.style.color = ok===true?"#22c55e":ok===false?"#f59e0b":"#f59e0b";
+  el.style.color=ok===true?"#22c55e":"#f59e0b";
   el.textContent=msg;
 }
 
-// ── Events ─────────────────────────────────────────────────────────────────
-document.getElementById("today-label").textContent =
+// ══════════════════════════════════════════════════════
+// BET LOG
+// ══════════════════════════════════════════════════════
+function prefillLogForm(d){
+  document.getElementById("log-date").value=new Date().toISOString().split("T")[0];
+  document.getElementById("log-matchup").value=d.matchup||"";
+  document.getElementById("log-team").value=d.team||"";
+  document.getElementById("log-book").value=d.book||"";
+  document.getElementById("log-odds").value=d.odds||"";
+  document.getElementById("log-espn").value=d.espn||"";
+  document.getElementById("log-model").value=d.model||"";
+  document.getElementById("log-edge").value=d.edge||"";
+  document.getElementById("log-stake").value="";
+  document.getElementById("log-close").value="";
+}
+
+function renderLog(){
+  const body=document.getElementById("log-body");
+  const empty=document.getElementById("log-empty");
+  if(!betLog.length){body.innerHTML="";empty.style.display="block";return;}
+  empty.style.display="none";
+  body.innerHTML="";
+  [...betLog].reverse().forEach((b,i)=>{
+    const realI=betLog.length-1-i;
+    // CLV
+    let clvHTML="—";
+    if(b.closeOdds&&b.odds){
+      const gotImp=americanToImplied(b.odds);
+      const closeImp=americanToImplied(b.closeOdds);
+      if(gotImp&&closeImp){
+        const clvPct=((closeImp-gotImp)*100).toFixed(1);
+        const clvColor=parseFloat(clvPct)<0?"#4ade80":"#f87171";
+        clvHTML=`<span style="color:${clvColor};font-weight:700;">${parseFloat(clvPct)<0?"+":"-"}${Math.abs(clvPct)}%</span>`;
+      }
+    }
+    // P&L
+    let pnlHTML="—";
+    if(b.result==="win"&&b.stake&&b.odds){
+      const o=parseFloat(b.odds);
+      const s=parseFloat(b.stake);
+      const profit=o>0?(s*o/100):(s*100/Math.abs(o));
+      pnlHTML=`<span style="color:#4ade80;font-weight:700;">+$${profit.toFixed(2)}</span>`;
+    }else if(b.result==="loss"&&b.stake){
+      pnlHTML=`<span style="color:#f87171;font-weight:700;">-$${parseFloat(b.stake).toFixed(2)}</span>`;
+    }else if(b.result==="void"){
+      pnlHTML=`<span style="color:#6b7280;">$0</span>`;
+    }
+
+    const resultBtns=`
+      <div style="display:flex;gap:4px;margin-top:4px;">
+        <button class="btn-result-win ${b.result==="win"?"":"opacity-50"}" data-idx="${realI}" data-res="win" style="opacity:${b.result==="win"?1:0.4}">W</button>
+        <button class="btn-result-loss" data-idx="${realI}" data-res="loss" style="opacity:${b.result==="loss"?1:0.4}">L</button>
+        <button class="btn-result-void" data-idx="${realI}" data-res="void" style="opacity:${b.result==="void"?1:0.4}">V</button>
+      </div>`;
+
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td style="color:#6b7280;font-size:11px;">${b.date||""}</td>
+      <td style="color:#4b5563;font-size:11px;">${esc(b.matchup||"")}</td>
+      <td style="color:#f9fafb;font-weight:700;">${esc(b.team||"")}</td>
+      <td style="color:#9ca3af;font-size:11px;">${esc(b.book||"")}</td>
+      <td style="color:#e5e7eb;">${b.odds?fmtOdds(b.odds):"—"}</td>
+      <td style="color:#e5e7eb;">$${b.stake||"—"}</td>
+      <td style="color:#f97316;">${b.espn?b.espn+"%":"—"}</td>
+      <td style="color:#9ca3af;">${b.edge?"+"+b.edge+"%":"—"}</td>
+      <td>${clvHTML}</td>
+      <td>${resultBtns}</td>
+      <td>${pnlHTML}</td>
+      <td><button class="btn-delete-log" data-idx="${realI}">✕</button></td>
+    `;
+    body.appendChild(tr);
+  });
+
+  // Result buttons
+  body.querySelectorAll(".btn-result-win,.btn-result-loss,.btn-result-void").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const idx=parseInt(btn.dataset.idx);
+      betLog[idx].result=btn.dataset.res;
+      saveLog();renderLog();renderStats();
+    });
+  });
+  body.querySelectorAll(".btn-delete-log").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      betLog.splice(parseInt(btn.dataset.idx),1);
+      saveLog();renderLog();renderStats();
+    });
+  });
+}
+
+// ══════════════════════════════════════════════════════
+// STATS PAGE
+// ══════════════════════════════════════════════════════
+function renderStats(){
+  const empty=document.getElementById("stats-empty");
+  const grid=document.getElementById("stats-grid");
+  const confWrap=document.getElementById("conf-wrap");
+  const clvWrap=document.getElementById("clv-wrap");
+
+  const settled=betLog.filter(b=>b.result==="win"||b.result==="loss");
+  if(!settled.length){empty.style.display="block";grid.innerHTML="";confWrap.style.display="none";clvWrap.style.display="none";return;}
+  empty.style.display="none";
+
+  let totalStake=0,totalPnl=0,wins=0;
+  settled.forEach(b=>{
+    const s=parseFloat(b.stake)||0;
+    totalStake+=s;
+    if(b.result==="win"){
+      wins++;
+      const o=parseFloat(b.odds);
+      totalPnl+=o>0?(s*o/100):(s*100/Math.abs(o));
+    }else{
+      totalPnl-=s;
+    }
+  });
+
+  const roi=totalStake>0?totalPnl/totalStake:0;
+  const winRate=settled.length>0?wins/settled.length:0;
+  const avgStake=settled.length>0?totalStake/settled.length:0;
+  const n=settled.length;
+
+  // CLV data
+  const clvBets=betLog.filter(b=>b.closeOdds&&b.odds);
+  let avgClv=null;
+  if(clvBets.length){
+    const clvVals=clvBets.map(b=>{
+      const got=americanToImplied(b.odds),close=americanToImplied(b.closeOdds);
+      return got&&close?(close-got)*100:null;
+    }).filter(v=>v!==null);
+    avgClv=clvVals.length?clvVals.reduce((a,b)=>a+b,0)/clvVals.length:null;
+  }
+
+  // Confidence interval for ROI (Wilson method approximation)
+  const z=1.96;
+  const p=winRate;
+  const margin=z*Math.sqrt(p*(1-p)/n);
+  const roiLow=roi-margin*2;
+  const roiHigh=roi+margin*2;
+
+  const roiColor=roi>0?"stat-positive":roi<0?"stat-negative":"stat-neutral";
+  const clvColor=avgClv!==null&&avgClv<0?"stat-positive":"stat-negative";
+
+  grid.innerHTML=`
+    <div class="stat-card">
+      <div class="stat-label">TOTAL BETS</div>
+      <div class="stat-value">${n}</div>
+      <div class="stat-sub">${betLog.length} logged · ${betLog.filter(b=>!b.result).length} pending</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">WIN RATE</div>
+      <div class="stat-value ${winRate>0.52?"stat-positive":"stat-negative"}">${(winRate*100).toFixed(1)}%</div>
+      <div class="stat-sub">${wins}W / ${settled.length-wins}L</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">TOTAL P&L</div>
+      <div class="stat-value ${totalPnl>0?"stat-positive":"stat-negative"}">${fmtDollar(totalPnl)}</div>
+      <div class="stat-sub">on $${totalStake.toFixed(0)} wagered</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">ROI</div>
+      <div class="stat-value ${roiColor}">${(roi*100).toFixed(1)}%</div>
+      <div class="stat-sub">avg stake $${avgStake.toFixed(0)}</div>
+    </div>
+    ${avgClv!==null?`
+    <div class="stat-card">
+      <div class="stat-label">AVG CLV</div>
+      <div class="stat-value ${clvColor}">${avgClv<0?"+":"-"}${Math.abs(avgClv).toFixed(2)}%</div>
+      <div class="stat-sub">vs closing line (${clvBets.length} bets)</div>
+    </div>`:""}
+    <div class="stat-card">
+      <div class="stat-label">SAMPLE SIZE</div>
+      <div class="stat-value stat-neutral">${n}</div>
+      <div class="stat-sub">${n<100?"⚠ Too small":n<500?"~ Getting useful":"✓ Meaningful"}</div>
+    </div>
+  `;
+
+  // Confidence bar
+  confWrap.style.display="block";
+  document.getElementById("conf-content").innerHTML=`
+    <div class="conf-row">
+      <span class="conf-label">LOW</span>
+      <div class="conf-bar-bg"><div class="conf-bar-fill" style="width:${Math.min(100,Math.max(0,(roiLow+0.2)*250))}%;background:#ef4444;"></div></div>
+      <span class="conf-value" style="color:#f87171;">${(roiLow*100).toFixed(1)}%</span>
+    </div>
+    <div class="conf-row">
+      <span class="conf-label">ACTUAL</span>
+      <div class="conf-bar-bg"><div class="conf-bar-fill" style="width:${Math.min(100,Math.max(0,(roi+0.2)*250))}%;background:#38bdf8;"></div></div>
+      <span class="conf-value" style="color:#38bdf8;">${(roi*100).toFixed(1)}%</span>
+    </div>
+    <div class="conf-row">
+      <span class="conf-label">HIGH</span>
+      <div class="conf-bar-bg"><div class="conf-bar-fill" style="width:${Math.min(100,Math.max(0,(roiHigh+0.2)*250))}%;background:#22c55e;"></div></div>
+      <span class="conf-value" style="color:#4ade80;">${(roiHigh*100).toFixed(1)}%</span>
+    </div>
+  `;
+
+  // CLV section
+  if(clvBets.length){
+    clvWrap.style.display="block";
+    const positiveClv=clvBets.filter(b=>{
+      const got=americanToImplied(b.odds),close=americanToImplied(b.closeOdds);
+      return got&&close&&close>got;
+    }).length;
+    document.getElementById("clv-content").innerHTML=`
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:8px;">
+        <div class="stat-card" style="padding:10px;">
+          <div class="stat-label">AVG CLV</div>
+          <div class="stat-value" style="font-size:16px;color:${avgClv<0?"#4ade80":"#f87171"};">${avgClv<0?"+":"-"}${Math.abs(avgClv).toFixed(2)}%</div>
+        </div>
+        <div class="stat-card" style="padding:10px;">
+          <div class="stat-label">BEAT CLOSE</div>
+          <div class="stat-value" style="font-size:16px;">${positiveClv}/${clvBets.length}</div>
+        </div>
+        <div class="stat-card" style="padding:10px;">
+          <div class="stat-label">CLV WIN%</div>
+          <div class="stat-value" style="font-size:16px;color:${positiveClv/clvBets.length>0.5?"#4ade80":"#f87171"};">${(positiveClv/clvBets.length*100).toFixed(0)}%</div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+// ══════════════════════════════════════════════════════
+// TAB NAVIGATION
+// ══════════════════════════════════════════════════════
+function switchTab(tab){
+  document.querySelectorAll(".nav-tab").forEach(t=>{
+    t.classList.toggle("active",t.dataset.tab===tab);
+  });
+  document.querySelectorAll(".page").forEach(p=>{
+    p.classList.toggle("active",p.id===`page-${tab}`);
+  });
+  if(tab==="log")renderLog();
+  if(tab==="stats")renderStats();
+  // Show/hide header controls
+  const showAnalysis=tab==="analysis";
+  document.getElementById("btn-fetch").style.display=showAnalysis?"":"none";
+  document.getElementById("btn-add-header").style.display=showAnalysis?"":"none";
+  document.getElementById("btn-clear").style.display=showAnalysis?"":"none";
+}
+
+document.querySelectorAll(".nav-tab").forEach(tab=>{
+  tab.addEventListener("click",()=>switchTab(tab.dataset.tab));
+});
+
+// ══════════════════════════════════════════════════════
+// EVENTS
+// ══════════════════════════════════════════════════════
+document.getElementById("today-label").textContent=
   new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"}).toUpperCase();
 
-document.getElementById("btn-fetch").addEventListener("click", fetchOdds);
-
-document.getElementById("btn-add").addEventListener("click",()=>{games.push(emptyGame());render();});
+document.getElementById("btn-fetch").addEventListener("click",fetchOdds);
+document.getElementById("btn-add-header").addEventListener("click",()=>{games.push(emptyGame());render();});
 document.getElementById("btn-add-bottom").addEventListener("click",()=>{games.push(emptyGame());render();});
 
 document.getElementById("btn-clear").addEventListener("click",()=>{
@@ -590,7 +1218,7 @@ document.getElementById("btn-clear").addEventListener("click",()=>{
 });
 document.getElementById("btn-confirm-yes").addEventListener("click",()=>{
   games=[emptyGame()];
-  try{localStorage.removeItem(STORAGE_KEY);}catch{}
+  try{localStorage.removeItem(STORAGE_GAMES);}catch{}
   document.getElementById("fetch-status").style.display="none";
   document.getElementById("req-remaining").style.display="none";
   document.getElementById("clear-confirm").style.display="none";
@@ -602,8 +1230,45 @@ document.getElementById("btn-confirm-no").addEventListener("click",()=>{
   document.getElementById("btn-clear").style.display="inline-block";
 });
 
-// Boot
-games = loadGames() || [emptyGame()];
+// Bankroll
+document.getElementById("bankroll-input").value=bankroll;
+document.getElementById("bankroll-input").addEventListener("change",e=>{
+  bankroll=parseFloat(e.target.value)||1000;
+  localStorage.setItem(STORAGE_BANK,bankroll);
+  renderSummary();
+});
+document.getElementById("kelly-select").addEventListener("change",()=>renderSummary());
+
+// Bet log form
+document.getElementById("log-date").value=new Date().toISOString().split("T")[0];
+document.getElementById("btn-log-submit").addEventListener("click",()=>{
+  const b={
+    id:Date.now(),
+    date:document.getElementById("log-date").value,
+    matchup:document.getElementById("log-matchup").value,
+    team:document.getElementById("log-team").value,
+    book:document.getElementById("log-book").value,
+    odds:document.getElementById("log-odds").value,
+    stake:document.getElementById("log-stake").value,
+    espn:document.getElementById("log-espn").value,
+    model:document.getElementById("log-model").value,
+    edge:document.getElementById("log-edge").value,
+    closeOdds:document.getElementById("log-close").value,
+    result:null,
+  };
+  if(!b.team||!b.odds){alert("Team and odds are required.");return;}
+  betLog.push(b);
+  saveLog();renderLog();renderStats();
+  // Clear stake/close
+  document.getElementById("log-stake").value="";
+  document.getElementById("log-close").value="";
+});
+
+// ══════════════════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════════════════
+games=loadGames()||[emptyGame()];
+betLog=loadLog();
 render();
 </script>
 </body>
