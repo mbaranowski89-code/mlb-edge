@@ -1103,17 +1103,22 @@ function setPitcherStatus(msg, cls=""){
 
 async function fetchPitchers(){
   const btn=document.getElementById("btn-fetch-pitchers");
-  btn.disabled=true; btn.textContent="LOADING...";
   const date=getSelectedDate();
+
+  // Always reset button no matter what happens
+  const done = () => { btn.disabled=false; btn.textContent="⚾ FETCH PITCHERS"; };
+
+  btn.disabled=true; btn.textContent="LOADING...";
   setPitcherStatus(`Step 1/2: Fetching starters from MLB API for ${date}...`);
+
+  // ── Step 1: MLB Stats API ──────────────────────────────
+  let gamePitchers = [];
 
   try{
     const schedUrl=`https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&hydrate=probablePitcher(note),team`;
     const schedRes=await fetch(schedUrl);
-    if(!schedRes.ok)throw new Error("MLB API "+schedRes.status);
+    if(!schedRes.ok) throw new Error("MLB schedule API returned "+schedRes.status);
     const schedData=await schedRes.json();
-
-    const gamePitchers=[]; // [{awayTeam, homeTeam, awayPitcherId, homePitcherId, awayName, homeName}]
 
     for(const dateObj of (schedData.dates||[])){
       for(const game of (dateObj.games||[])){
@@ -1129,103 +1134,118 @@ async function fetchPitchers(){
       }
     }
 
-    if(!gamePitchers.length){
-      setPitcherStatus(`⚠ No games found in MLB schedule for ${date}`,"warn");
-      btn.disabled=false; btn.textContent="⚾ FETCH PITCHERS";
-      return;
-    }
-
-    // Fetch season stats for each unique pitcher ID
-    const allIds=[...new Set(gamePitchers.flatMap(g=>[g.awayId,g.homeId].filter(Boolean)))];
-    const statsMap={}; // id → {era}
-
-    await Promise.all(allIds.map(async id=>{
+    // Fetch ERA for each pitcher id
+    const allIds=[...new Set(gamePitchers.flatMap(gp=>[gp.awayId,gp.homeId].filter(Boolean)))];
+    const statsMap={};
+    await Promise.allSettled(allIds.map(async id=>{
       try{
         const r=await fetch(`https://statsapi.mlb.com/api/v1/people/${id}/stats?stats=season&group=pitching&season=${new Date().getFullYear()}`);
-        if(!r.ok)return;
+        if(!r.ok) return;
         const d=await r.json();
         const splits=d.stats?.[0]?.splits;
-        if(splits&&splits.length){
+        if(splits?.length){
           const s=splits[splits.length-1].stat;
           statsMap[id]={era:s.era||"",ip:s.inningsPitched||""};
         }
       }catch{}
     }));
 
-    // Match to games array by team abbr
+    // Match starters to game cards
     let matched=0;
     for(const gp of gamePitchers){
       const game=games.find(g=>
         (g.awayTeam===gp.awayTeam&&g.homeTeam===gp.homeTeam)||
         (g.awayTeam===gp.homeTeam&&g.homeTeam===gp.awayTeam)
       );
-      if(!game)continue;
+      if(!game) continue;
       matched++;
-
-      // Determine which side is away/home relative to our game object
       const awayMatch=game.awayTeam===gp.awayTeam;
-
       const awayId=awayMatch?gp.awayId:gp.homeId;
       const homeId=awayMatch?gp.homeId:gp.awayId;
       const awayName=awayMatch?gp.awayName:gp.homeName;
       const homeName=awayMatch?gp.homeName:gp.awayName;
-
-      game.awayPitcher={
-        name:awayName,
-        era:awayId&&statsMap[awayId]?statsMap[awayId].era:"",
-        fip:"", xfip:"", mlbId:awayId,
-      };
-      game.homePitcher={
-        name:homeName,
-        era:homeId&&statsMap[homeId]?statsMap[homeId].era:"",
-        fip:"", xfip:"", mlbId:homeId,
-      };
+      game.awayPitcher={name:awayName,era:statsMap[awayId]?.era||"",fip:"",xfip:"",mlbId:awayId};
+      game.homePitcher={name:homeName,era:statsMap[homeId]?.era||"",fip:"",xfip:"",mlbId:homeId};
     }
 
+    saveGames();
     render();
-    setPitcherStatus(`✓ Step 1 done: ${matched} games matched · ERA loaded from MLB API`,"ok");
-
-    // Step 2: FIP/xFIP from FanGraphs via Claude
-    await fetchFipFromClaude(gamePitchers);
+    setPitcherStatus(`✓ Step 1 done: ${matched} games matched · ERA loaded`,"ok");
 
   }catch(err){
-    setPitcherStatus("⚠ MLB API failed: "+err.message.slice(0,50),"warn");
+    // MLB API failed — still proceed to FIP step using whatever names we got from game cards
+    setPitcherStatus(`⚠ MLB API error (${err.message.slice(0,40)}) — skipping to FIP entry`,"warn");
+    // Collect pitcher names directly from existing game cards as fallback
+    gamePitchers = games
+      .filter(g=>g.awayTeam||g.homeTeam)
+      .map(g=>({
+        awayTeam:g.awayTeam, homeTeam:g.homeTeam,
+        awayName:g.awayPitcher?.name||"", homeName:g.homePitcher?.name||"",
+        awayId:null, homeId:null,
+      }));
   }
 
-  btn.disabled=false; btn.textContent="⚾ FETCH PITCHERS";
+  // ── Step 2: FIP/xFIP — always runs, always resets button ──
+  try{
+    await fetchFipStats(gamePitchers);
+  }catch(err){
+    // Last resort — show modal directly
+    const names=gamePitchers.flatMap(gp=>[gp.awayName,gp.homeName].filter(Boolean));
+    setPitcherStatus("⚠ Auto-fetch failed — enter FIP/xFIP manually","warn");
+    showManualFipModal(names.length ? names : games.flatMap(g=>[g.awayPitcher?.name,g.homePitcher?.name]).filter(Boolean));
+  }
+
+  done();
 }
 
 // ══════════════════════════════════════════════════════
 // PITCHER FETCH — STEP 2: FanGraphs FIP/xFIP
-// Strategy: 1) Direct CSV  2) CORS proxy  3) Manual entry modal
+// Strategy: 1) Direct CSV  2) CORS proxy  3) Manual modal
 // ══════════════════════════════════════════════════════
-async function fetchFipFromClaude(gamePitchers){
-  const names=gamePitchers.flatMap(g=>[g.awayName,g.homeName].filter(Boolean));
-  if(!names.length)return;
+async function fetchFipStats(gamePitchers){
+  const names=[...new Set(
+    gamePitchers.flatMap(gp=>[gp.awayName,gp.homeName].filter(n=>n&&n.trim()))
+  )];
+
+  // Also grab any names already on the cards in case MLB API was skipped
+  for(const g of games){
+    if(g.awayPitcher?.name) names.push(g.awayPitcher.name);
+    if(g.homePitcher?.name) names.push(g.homePitcher.name);
+  }
+  const uniqueNames=[...new Set(names.filter(Boolean))];
+
+  if(!uniqueNames.length){
+    setPitcherStatus("⚠ No pitcher names found — fetch odds & pitchers first","warn");
+    return;
+  }
 
   const year=new Date().getFullYear();
-  // FanGraphs CSV export — qualified=0 so we get all pitchers including spot starters
   const fgUrl=`https://www.fangraphs.com/leaders.aspx?pos=all&stats=pit&lg=all&qual=0&type=1&season=${year}&month=0&season1=${year}&ind=0&team=0&rost=0&age=0&filter=&players=0&export=1`;
 
   // ── Attempt 1: Direct fetch ──────────────────────────
-  setPitcherStatus("Step 2/2: Fetching FIP/xFIP from FanGraphs CSV...");
+  setPitcherStatus("Step 2/2: Trying FanGraphs direct CSV...");
   let csvText = null;
 
   try{
-    const r = await fetch(fgUrl);
+    const controller = new AbortController();
+    const timeout = setTimeout(()=>controller.abort(), 8000);
+    const r = await fetch(fgUrl, {signal:controller.signal});
+    clearTimeout(timeout);
     if(r.ok){
       const t = await r.text();
-      // Sanity check: real CSV will contain "FIP" and "xFIP" headers
       if(t.includes("FIP") && t.length > 500) csvText = t;
     }
-  }catch(e){ /* CORS blocked — try proxy */ }
+  }catch(e){ /* CORS or timeout — try proxy */ }
 
   // ── Attempt 2: CORS proxy ────────────────────────────
   if(!csvText){
-    setPitcherStatus("Step 2/2: Direct fetch blocked — trying proxy...");
-    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(fgUrl)}`;
+    setPitcherStatus("Step 2/2: Direct blocked — trying CORS proxy...");
+    const proxyUrl=`https://corsproxy.io/?${encodeURIComponent(fgUrl)}`;
     try{
-      const r = await fetch(proxyUrl);
+      const controller = new AbortController();
+      const timeout = setTimeout(()=>controller.abort(), 10000);
+      const r = await fetch(proxyUrl, {signal:controller.signal});
+      clearTimeout(timeout);
       if(r.ok){
         const t = await r.text();
         if(t.includes("FIP") && t.length > 500) csvText = t;
@@ -1233,25 +1253,27 @@ async function fetchFipFromClaude(gamePitchers){
     }catch(e){ /* proxy also failed */ }
   }
 
-  // ── Parse CSV if we got it ───────────────────────────
+  // ── Parse if we got CSV ──────────────────────────────
   if(csvText){
-    const matched = parseFanGraphsCSV(csvText, names);
-    if(matched > 0){
-      saveGames();
-      render();
-      setPitcherStatus(`✓ Complete: ERA (MLB API) + FIP/xFIP (FanGraphs) loaded for ${matched} pitchers`,"ok");
-      return;
-    }
+    try{
+      const matched = parseFanGraphsCSV(csvText);
+      if(matched > 0){
+        saveGames();
+        render();
+        setPitcherStatus(`✓ Complete: FIP/xFIP auto-loaded for ${matched} pitchers`,"ok");
+        return;
+      }
+    }catch(e){ /* parse failed, fall through */ }
   }
 
-  // ── Attempt 3: Manual entry modal ───────────────────
-  setPitcherStatus("⚠ FanGraphs auto-fetch unavailable — enter FIP/xFIP manually below","warn");
-  render(); // show ERA that was already loaded
-  showManualFipModal(names);
+  // ── Attempt 3: Manual modal — always succeeds ────────
+  setPitcherStatus("⚠ Auto-fetch unavailable — use manual entry below","warn");
+  render();
+  showManualFipModal(uniqueNames);
 }
 
-// Parse FanGraphs CSV export and match pitchers by last name
-function parseFanGraphsCSV(csv, targetNames){
+// Parse FanGraphs CSV export and match pitchers into game cards
+function parseFanGraphsCSV(csv){
   const lines = csv.trim().split("\n");
   if(lines.length < 2) return 0;
 
@@ -1325,14 +1347,13 @@ function showManualFipModal(names){
 
   const uniqueNames = [...new Set(names.filter(Boolean))];
   const year = new Date().getFullYear();
+  // Direct link to FanGraphs pitching leaderboard — search by name there
+  const fgLeaderboard = `https://www.fangraphs.com/leaders.aspx?pos=all&stats=pit&lg=all&qual=0&type=1&season=${year}&month=0&season1=${year}&ind=0&team=0&rost=0&age=0&filter=&players=0`;
 
   const rows = uniqueNames.map(name=>{
-    const lastName = name.split(" ").pop();
-    const fgLink = `https://www.fangraphs.com/players/${lastName.toLowerCase()}/?stats=pit&type=0&gds=&gde=&season=${year}`;
     return`<div class="fip-row" data-name="${esc(name)}">
       <div class="fip-name">
         ${esc(name)}
-        <a href="${esc(fgLink)}" target="_blank" class="fip-fg-link">FanGraphs ↗</a>
       </div>
       <div class="fip-inputs">
         <div>
@@ -1355,7 +1376,10 @@ function showManualFipModal(names){
       <div id="fip-modal-header">
         <div>
           <div style="font-size:11px;font-weight:800;letter-spacing:2px;color:#38bdf8;">ENTER FIP / xFIP</div>
-          <div style="font-size:9px;color:#374151;margin-top:2px;">Find stats at fangraphs.com → Pitching Leaders → Standard</div>
+          <div style="font-size:9px;color:#374151;margin-top:3px;">
+            Look up stats at →
+            <a href="${esc(fgLeaderboard)}" target="_blank" style="color:#38bdf8;text-decoration:none;">FanGraphs Pitching Leaders ↗</a>
+          </div>
         </div>
         <button id="fip-modal-close">✕</button>
       </div>
