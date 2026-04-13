@@ -155,6 +155,25 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
 .empty-state{text-align:center;padding:28px 14px;color:#2d3f55;font-size:10px;letter-spacing:1px;}
 
 #btn-add-bottom{width:100%;background:#0a1220;border:1px dashed #1e2d42;color:#2d3f55;border-radius:8px;padding:12px;cursor:pointer;font-size:9px;letter-spacing:2px;margin-top:4px;font-weight:700;}
+
+/* OPENING LINES PANEL */
+#open-lines-wrap{background:#080e1a;border:1px solid #1e2d42;border-radius:10px;overflow:hidden;margin-bottom:14px;}
+#open-lines-header{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #1e2d42;cursor:pointer;}
+#open-lines-title{font-size:10px;color:#374151;letter-spacing:2px;}
+#open-lines-timestamp{font-size:9px;color:#2d3f55;}
+#open-lines-toggle{font-size:9px;color:#374151;}
+#open-lines-body{display:none;padding:10px 12px;}
+#open-lines-body.expanded{display:block;}
+.open-line-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:6px;align-items:center;padding:5px 0;border-bottom:1px solid #0d1420;font-size:11px;}
+.open-line-row:last-child{border-bottom:none;}
+.open-line-matchup{color:#4b5563;font-size:10px;}
+.open-line-odds{color:#f59e0b;font-weight:700;font-family:'Courier New',monospace;}
+.open-line-cur{color:#6b7280;font-size:10px;}
+.open-line-move{font-size:10px;font-weight:700;}
+.move-up{color:#4ade80;} .move-dn{color:#f87171;} .move-flat{color:#374151;}
+.btn-open-action{font-size:9px;padding:4px 8px;border-radius:4px;}
+#btn-set-open{background:#0c4a6e;color:#38bdf8;border:1px solid #38bdf844;}
+#btn-clear-open{background:none;color:#374151;border:1px solid #1a2332;}
 </style>
 </head>
 <body>
@@ -166,7 +185,7 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
       <div><span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span></div>
       <div style="display:flex;align-items:center;gap:8px;">
         <div id="today-label"></div>
-        <div style="font-size:9px;color:#1e2d42;letter-spacing:1px;">v15</div>
+        <div style="font-size:9px;color:#1e2d42;letter-spacing:1px;">v16</div>
       </div>
     </div>
     <div id="btn-area">
@@ -210,6 +229,30 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
       <option value="0.5" selected>Half Kelly</option>
       <option value="0.25">Quarter Kelly</option>
     </select>
+  </div>
+
+  <!-- Opening Lines Panel -->
+  <div id="open-lines-wrap" style="display:none;">
+    <div id="open-lines-header">
+      <div>
+        <div id="open-lines-title">OPENING LINES</div>
+        <div id="open-lines-timestamp"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button id="btn-set-open" class="btn-open-action">📌 SET AS OPEN</button>
+        <button id="btn-clear-open" class="btn-open-action">✕ CLEAR</button>
+        <span id="open-lines-toggle">▼</span>
+      </div>
+    </div>
+    <div id="open-lines-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;padding:0 0 6px;border-bottom:1px solid #1e2d42;margin-bottom:6px;">
+        <span style="font-size:8px;color:#2d3f55;letter-spacing:1px;">MATCHUP</span>
+        <span style="font-size:8px;color:#2d3f55;letter-spacing:1px;">OPEN</span>
+        <span style="font-size:8px;color:#2d3f55;letter-spacing:1px;">CURRENT</span>
+        <span style="font-size:8px;color:#2d3f55;letter-spacing:1px;">MOVE</span>
+      </div>
+      <div id="open-lines-rows"></div>
+    </div>
   </div>
 
   <!-- Summary table -->
@@ -867,7 +910,7 @@ async function fetchOdds(){
 
     if(!Array.isArray(usData)||!usData.length){setStatus("⚠ NO GAMES",false);return;}
 
-    // Snapshot opening lines before overwriting (only if we don't have them yet)
+    // Keep existing opening lines, only ADD new ones (never overwrite)
     const newOpenLines={...openLines};
 
     games=usData.map(ev=>{
@@ -890,12 +933,16 @@ async function fetchOdds(){
       const espnK=`${awayAbbr}|${homeAbbr}`;
       const espn=espnLookup[espnK]||null;
 
-      // Stable ID based on matchup so opening lines persist across re-fetches
       const stableId=`${awayAbbr}-${homeAbbr}-${date}`;
 
-      // Save opening lines once per day per matchup
+      // Only save opening line if we have Pinnacle AND it hasn't been set yet
       if(!newOpenLines[stableId]&&awayOdds[PIN_KEY]&&homeOdds[PIN_KEY]){
-        newOpenLines[stableId]={awayPin:awayOdds[PIN_KEY],homePin:homeOdds[PIN_KEY],ts:Date.now()};
+        newOpenLines[stableId]={
+          awayPin:awayOdds[PIN_KEY], homePin:homeOdds[PIN_KEY],
+          awayTeam:awayAbbr, homeTeam:homeAbbr,
+          ts:Date.now()
+        };
+      }
       }
 
       return{
@@ -910,10 +957,12 @@ async function fetchOdds(){
     openLines=newOpenLines;
     saveOpen();
     render();
+    renderOpenLines();
 
     const espnCount=Object.keys(espnLookup).length;
     const pinCount=games.filter(g=>g.awayOdds[PIN_KEY]).length;
-    setStatus(`✓ ${games.length} GAMES · ${pinCount} w/Pinnacle · ESPN: ${espnCount}`,true);
+    const openCount=Object.keys(openLines).filter(k=>k.endsWith(date)).length;
+    setStatus(`✓ ${games.length} GAMES · ${pinCount} w/Pinnacle · ${openCount} open lines`,true);
 
   }catch(err){setStatus("⚠ "+err.message.slice(0,50),false);}
   btn.disabled=false; btn.textContent="⚡ FETCH";
@@ -924,6 +973,100 @@ function setStatus(msg,ok){
   el.style.display="inline";
   el.style.color=ok===true?"#22c55e":"#f59e0b";
   el.textContent=msg;
+}
+
+// ═══════════════════════════════════════════
+// OPENING LINES PANEL
+// ═══════════════════════════════════════════
+function renderOpenLines(){
+  const date=getDate();
+  const wrap=document.getElementById("open-lines-wrap");
+  const rowsEl=document.getElementById("open-lines-rows");
+  const tsEl=document.getElementById("open-lines-timestamp");
+
+  // Get opening lines for today's date
+  const todayLines=Object.entries(openLines)
+    .filter(([k])=>k.endsWith(date))
+    .sort(([a],[b])=>a.localeCompare(b));
+
+  if(!todayLines.length){ wrap.style.display="none"; return; }
+  wrap.style.display="block";
+
+  // Timestamp of earliest opening line
+  const earliest=Math.min(...todayLines.map(([,v])=>v.ts||Infinity));
+  if(earliest<Infinity){
+    const t=new Date(earliest);
+    tsEl.textContent=`Set at ${t.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}`;
+    tsEl.style.color="#2d3f55";
+    tsEl.style.fontSize="9px";
+  } else {
+    tsEl.textContent="Manually set";
+    tsEl.style.color="#2d3f55";
+  }
+
+  rowsEl.innerHTML="";
+  todayLines.forEach(([id,open])=>{
+    const game=games.find(g=>g.id===id);
+    const curPinA=game?.awayOdds?.[PIN_KEY];
+    const curPinH=game?.homeOdds?.[PIN_KEY];
+
+    // Compute fair probability shift
+    let moveHTML="—";
+    if(curPinA&&curPinH&&open.awayPin&&open.homePin){
+      const openFair=removeVig(toImp(open.awayPin),toImp(open.homePin));
+      const curFair=removeVig(toImp(curPinA),toImp(curPinH));
+      const shift=(curFair.f1-openFair.f1)*100;
+      const abs=Math.abs(shift).toFixed(1);
+      if(Math.abs(shift)<0.5){
+        moveHTML=`<span class="move-flat">—</span>`;
+      } else if(shift>0){
+        moveHTML=`<span class="move-up">▲ ${esc(open.awayTeam||"")} +${abs}%</span>`;
+      } else {
+        moveHTML=`<span class="move-up">▲ ${esc(open.homeTeam||"")} +${abs}%</span>`;
+      }
+    } else if(!curPinA){
+      moveHTML=`<span style="color:#2d3f55;font-size:9px;">No current line</span>`;
+    }
+
+    const away=open.awayTeam||id.split("-")[0];
+    const home=open.homeTeam||id.split("-")[1];
+
+    const row=document.createElement("div");
+    row.style.cssText="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;align-items:center;padding:5px 0;border-bottom:1px solid #0d1420;font-size:11px;";
+    row.innerHTML=`
+      <span style="color:#4b5563;font-size:10px;">${esc(away)} @ ${esc(home)}</span>
+      <span style="color:#f59e0b;font-weight:700;font-size:10px;font-family:'Courier New',monospace;">
+        ${fmtOdds(open.awayPin)} / ${fmtOdds(open.homePin)}
+      </span>
+      <span style="color:#6b7280;font-size:10px;font-family:'Courier New',monospace;">
+        ${curPinA?fmtOdds(curPinA)+" / "+fmtOdds(curPinH):"—"}
+      </span>
+      <span>${moveHTML}</span>
+    `;
+    rowsEl.appendChild(row);
+  });
+}
+
+// Manually set current Pinnacle lines as opening lines (overwrite)
+function setAsOpenLines(){
+  const date=getDate();
+  let count=0;
+  for(const g of games){
+    if(!g.awayOdds[PIN_KEY]||!g.homeOdds[PIN_KEY])continue;
+    openLines[g.id]={
+      awayPin:g.awayOdds[PIN_KEY],
+      homePin:g.homeOdds[PIN_KEY],
+      awayTeam:g.awayTeam,
+      homeTeam:g.homeTeam,
+      ts:Date.now(),
+      manual:true,
+    };
+    count++;
+  }
+  saveOpen();
+  render();
+  renderOpenLines();
+  setStatus(`📌 Opening lines set for ${count} games`,true);
 }
 
 // ═══════════════════════════════════════════
@@ -1095,6 +1238,25 @@ document.getElementById("btn-fetch").addEventListener("click",fetchOdds);
 document.getElementById("btn-add-header").addEventListener("click",()=>{games.push(emptyGame());render();});
 document.getElementById("btn-add-bottom").addEventListener("click",()=>{games.push(emptyGame());render();});
 
+// Opening lines panel
+document.getElementById("btn-set-open").addEventListener("click",()=>setAsOpenLines());
+document.getElementById("btn-clear-open").addEventListener("click",()=>{
+  const date=getDate();
+  Object.keys(openLines).filter(k=>k.endsWith(date)).forEach(k=>delete openLines[k]);
+  saveOpen();
+  renderOpenLines();
+  render(); // refresh movement flags on cards
+  setStatus("Opening lines cleared",null);
+});
+document.getElementById("open-lines-header").addEventListener("click",(e)=>{
+  // Don't toggle if clicking a button
+  if(e.target.tagName==="BUTTON")return;
+  const body=document.getElementById("open-lines-body");
+  const toggle=document.getElementById("open-lines-toggle");
+  const expanded=body.classList.toggle("expanded");
+  toggle.textContent=expanded?"▲":"▼";
+});
+
 document.getElementById("btn-clear").addEventListener("click",()=>{
   document.getElementById("btn-clear").style.display="none";
   document.getElementById("clear-confirm").style.display="flex";
@@ -1147,6 +1309,7 @@ games=loadGames()||[emptyGame()];
 betLog=loadLog();
 openLines=loadOpen();
 render();
+renderOpenLines();
 </script>
 </body>
 </html>
