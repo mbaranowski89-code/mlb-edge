@@ -349,7 +349,10 @@ const TEAM_ABBR = {
   "Pittsburgh Pirates":"PIT","San Diego Padres":"SD","San Francisco Giants":"SF",
   "Seattle Mariners":"SEA","St. Louis Cardinals":"STL","Tampa Bay Rays":"TB",
   "Texas Rangers":"TEX","Toronto Blue Jays":"TOR","Washington Nationals":"WSH",
-  "Athletics":"OAK",
+  "Athletics":"OAK","Oakland Athletics":"OAK",
+  // Alternate spellings from various APIs
+  "Chicago White Sox":"CWS","Kansas City Royals":"KC","San Diego Padres":"SD",
+  "San Francisco Giants":"SF","Tampa Bay Rays":"TB","Washington Nationals":"WSH",
 };
 function teamAbbr(n){return TEAM_ABBR[n]||n.split(" ").pop().slice(0,3).toUpperCase();}
 
@@ -1028,15 +1031,25 @@ async function fetchOdds(){
     const usEvents=await usRes.json();
     const pinEvents=pinRes.ok?await pinRes.json():[];
 
-    // Parse ESPN data
-    const espnLookup={}; // abbr → { awayWinPct, homeWinPct }
+    // ESPN abbreviation overrides — ESPN uses different abbrs than Odds API for some teams
+    const ESPN_ABBR_MAP = {
+      "ATH":"OAK", "WSH":"WAS", "CHW":"CWS", "KCR":"KC",
+      "TBR":"TB",  "SDP":"SD",  "SFG":"SF",  "NYM":"NYM",
+    };
+    const normalizeEspn = a => ESPN_ABBR_MAP[a] || a;
+
+    // Parse ESPN data — store under both original and normalized abbr
+    const espnLookup={}; // "AWAY|HOME" → { away, home }
     if(espnRes?.ok){
       try{
         const espnData=await espnRes.json();
         for(const g of (espnData.games||[])){
           if(g.awayWinPct!==null && g.homeWinPct!==null){
-            const key=`${g.awayTeam}|${g.homeTeam}`;
-            espnLookup[key]={away:g.awayWinPct, home:g.homeWinPct};
+            const normAway=normalizeEspn(g.awayTeam);
+            const normHome=normalizeEspn(g.homeTeam);
+            // Store under both raw and normalized keys for maximum match chance
+            espnLookup[`${g.awayTeam}|${g.homeTeam}`]={away:g.awayWinPct,home:g.homeWinPct};
+            espnLookup[`${normAway}|${normHome}`]={away:g.awayWinPct,home:g.homeWinPct};
           }
         }
       }catch{}
@@ -1077,9 +1090,10 @@ async function fetchOdds(){
         homeOdds[PINNACLE_KEY]=pinLookup[pinKey].home;
       }
 
-      // Match ESPN data by team abbreviation
-      const espnKey=`${awayAbbr}|${homeAbbr}`;
-      const espn=espnLookup[espnKey]||null;
+      // Match ESPN data — try multiple key formats to handle abbreviation differences
+      const espnKey1=`${awayAbbr}|${homeAbbr}`;
+      const espnKey2=`${awayAbbr.toUpperCase()}|${homeAbbr.toUpperCase()}`;
+      const espn=espnLookup[espnKey1]||espnLookup[espnKey2]||null;
 
       return{
         id:Date.now()+Math.random(),
