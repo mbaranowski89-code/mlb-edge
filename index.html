@@ -12,14 +12,15 @@ input:focus,select:focus{border-color:#374151;}
 select option{background:#0a1220;}
 button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-radius:5px;font-weight:800;font-size:10px;letter-spacing:1px;padding:7px 13px;}
 
-/* NAV */
-#nav{background:#080e1a;border-bottom:1px solid #1e2d42;padding:0 14px;display:flex;position:sticky;top:0;z-index:20;}
-.nav-tab{padding:11px 14px;font-size:10px;font-weight:700;letter-spacing:1.5px;color:#374151;cursor:pointer;border-bottom:2px solid transparent;background:none;border-radius:0;}
+/* NAV — scrolls away, not sticky */
+#nav{background:#080e1a;border-bottom:1px solid #1e2d42;padding:0 14px;display:flex;align-items:center;}
+#nav-tabs{display:flex;}
+.nav-tab{padding:10px 14px;font-size:10px;font-weight:700;letter-spacing:1.5px;color:#374151;cursor:pointer;border-bottom:2px solid transparent;background:none;border-radius:0;}
 .nav-tab.active{color:#22c55e;border-bottom-color:#22c55e;}
 
-/* HEADER */
-#header{border-bottom:1px solid #1a2332;padding:11px 14px;background:#060b14;position:sticky;top:44px;z-index:19;}
-#header-inner{max-width:740px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;}
+/* HEADER — sticky, compact, holds logo + buttons */
+#header{border-bottom:1px solid #1a2332;padding:10px 14px;background:#060b14;position:sticky;top:0;z-index:20;}
+#header-inner{max-width:740px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;}
 #logo{font-size:15px;font-weight:800;letter-spacing:2px;color:#f9fafb;}
 #logo-sub{font-size:9px;color:#22c55e;letter-spacing:3px;margin-left:7px;}
 #today-label{color:#2d3f55;font-size:9px;margin-top:2px;letter-spacing:1px;}
@@ -158,7 +159,7 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
 </head>
 <body>
 
-<!-- HEADER -->
+<!-- HEADER + NAV combined into single sticky bar -->
 <div id="header">
   <div id="header-inner">
     <div>
@@ -182,9 +183,11 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
 
 <!-- NAV -->
 <div id="nav">
-  <button class="nav-tab active" data-tab="analysis">ANALYSIS</button>
-  <button class="nav-tab" data-tab="log">BET LOG</button>
-  <button class="nav-tab" data-tab="stats">STATS</button>
+  <div id="nav-tabs">
+    <button class="nav-tab active" data-tab="analysis">ANALYSIS</button>
+    <button class="nav-tab" data-tab="log">BET LOG</button>
+    <button class="nav-tab" data-tab="stats">STATS</button>
+  </div>
 </div>
 
 <!-- ═══════════════════════════════════════ -->
@@ -1054,11 +1057,16 @@ function renderStats(){
 function switchTab(tab){
   document.querySelectorAll(".nav-tab").forEach(t=>t.classList.toggle("active",t.dataset.tab===tab));
   document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id===`page-${tab}`));
+  // Show/hide analysis-only buttons
   const isAnalysis=tab==="analysis";
   ["btn-fetch","btn-add-header","btn-clear"].forEach(id=>{
     const el=document.getElementById(id);
     if(el)el.style.display=isAnalysis?"":"none";
   });
+  if(!isAnalysis){
+    document.getElementById("clear-confirm").style.display="none";
+    document.getElementById("btn-clear").style.display="none";
+  }
   if(tab==="log")renderLog();
   if(tab==="stats")renderStats();
 }
