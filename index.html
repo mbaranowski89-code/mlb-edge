@@ -324,6 +324,7 @@ const STORAGE_GAMES   = "mlb-edge-v4-games";
 const STORAGE_LOG     = "mlb-edge-v4-log";
 const STORAGE_BANK    = "mlb-edge-v4-bank";
 const ODDS_API_KEY    = "803403e631dec7840e8157415bb61979";
+const WORKER_URL      = "https://fangraphs-proxy-worker.mbaranowski89.workers.dev";
 
 // All US books + Pinnacle for benchmark
 const US_BOOKS        = "fanduel,draftkings,betmgm,caesars,espnbet,bet365";
@@ -997,7 +998,7 @@ function getSelectedDate(){
 }
 
 // ══════════════════════════════════════════════════════
-// FETCH ODDS
+// FETCH ODDS + ESPN WIN PROBABILITIES
 // ══════════════════════════════════════════════════════
 async function fetchOdds(){
   const btn=document.getElementById("btn-fetch");
@@ -1005,15 +1006,21 @@ async function fetchOdds(){
   btn.disabled=true; btn.textContent="FETCHING...";
   setStatus(`FETCHING ${date}...`,null);
   try{
-    // The Odds API supports a commenceTimeFrom/To filter to scope by date
     const dateFrom=encodeURIComponent(date+"T00:00:00Z");
     const dateTo  =encodeURIComponent(date+"T23:59:59Z");
     const dateFilter=`&commenceTimeFrom=${dateFrom}&commenceTimeTo=${dateTo}`;
 
-    const usUrl=`https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h&oddsFormat=american&bookmakers=${US_BOOKS}${dateFilter}`;
+    const usUrl =`https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h&oddsFormat=american&bookmakers=${US_BOOKS}${dateFilter}`;
     const pinUrl=`https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h&oddsFormat=american&bookmakers=pinnacle${dateFilter}`;
+    const espnUrl=`${WORKER_URL}/espn?date=${date}`;
 
-    const [usRes,pinRes]=await Promise.all([fetch(usUrl),fetch(pinUrl)]);
+    // Fetch odds + ESPN in parallel
+    const [usRes, pinRes, espnRes] = await Promise.all([
+      fetch(usUrl),
+      fetch(pinUrl),
+      fetch(espnUrl).catch(()=>null), // ESPN failure never blocks odds
+    ]);
+
     const remaining=usRes.headers.get("x-requests-remaining");
     if(remaining){const el=document.getElementById("req-remaining");el.style.display="inline";el.textContent=remaining+" REQ LEFT";}
 
@@ -1021,7 +1028,21 @@ async function fetchOdds(){
     const usEvents=await usRes.json();
     const pinEvents=pinRes.ok?await pinRes.json():[];
 
-    // Build pinnacle lookup
+    // Parse ESPN data
+    const espnLookup={}; // abbr → { awayWinPct, homeWinPct }
+    if(espnRes?.ok){
+      try{
+        const espnData=await espnRes.json();
+        for(const g of (espnData.games||[])){
+          if(g.awayWinPct!==null && g.homeWinPct!==null){
+            const key=`${g.awayTeam}|${g.homeTeam}`;
+            espnLookup[key]={away:g.awayWinPct, home:g.homeWinPct};
+          }
+        }
+      }catch{}
+    }
+
+    // Build Pinnacle lookup
     const pinLookup={};
     for(const ev of pinEvents){
       const key=`${ev.away_team}|${ev.home_team}`;
@@ -1038,7 +1059,8 @@ async function fetchOdds(){
     if(!Array.isArray(usEvents)||!usEvents.length){setStatus("⚠ NO GAMES",false);return;}
 
     games=usEvents.map(ev=>{
-      const aN=ev.away_team,hN=ev.home_team;
+      const aN=ev.away_team, hN=ev.home_team;
+      const awayAbbr=teamAbbr(aN), homeAbbr=teamAbbr(hN);
       const awayOdds={}, homeOdds={};
       for(const bm of(ev.bookmakers||[])){
         const h2h=(bm.markets||[]).find(m=>m.key==="h2h");
@@ -1054,21 +1076,34 @@ async function fetchOdds(){
         awayOdds[PINNACLE_KEY]=pinLookup[pinKey].away;
         homeOdds[PINNACLE_KEY]=pinLookup[pinKey].home;
       }
+
+      // Match ESPN data by team abbreviation
+      const espnKey=`${awayAbbr}|${homeAbbr}`;
+      const espn=espnLookup[espnKey]||null;
+
       return{
         id:Date.now()+Math.random(),
-        awayTeam:teamAbbr(aN),homeTeam:teamAbbr(hN),
-        espnAway:"",espnHome:"",_homeAutoFilled:false,
-        awayOdds,homeOdds,
+        awayTeam:awayAbbr, homeTeam:homeAbbr,
+        espnAway: espn ? String(espn.away) : "",
+        espnHome: espn ? String(espn.home) : "",
+        _homeAutoFilled: false,
+        awayOdds, homeOdds,
         awayPitcher:{name:"",era:"",fip:"",xfip:""},
         homePitcher:{name:"",era:"",fip:"",xfip:""},
       };
     });
+
+    const espnCount=Object.keys(espnLookup).length;
     render();
-    setStatus(`✓ ${games.length} GAMES (${date}) · ${Object.keys(games[0]?.awayOdds||{}).length} BOOKS`,true);
-    // Enable pitcher fetch now that we have games
+    setStatus(
+      `✓ ${games.length} GAMES · ${Object.keys(games[0]?.awayOdds||{}).length} BOOKS` +
+      (espnCount ? ` · ESPN% for ${espnCount} games` : " · ESPN% unavailable"),
+      true
+    );
     document.getElementById("btn-fetch-pitchers").disabled=false;
-    setPitcherStatus("Odds loaded — click ⚾ FETCH PITCHERS to auto-load starters + stats");
+    setPitcherStatus("Odds loaded — click ⚾ FETCH PITCHERS to auto-load starters + FIP");
     document.getElementById("pitcher-fetch-bar").style.display="flex";
+
   }catch(err){setStatus("⚠ FETCH FAILED — "+err.message.slice(0,40),false);}
   btn.disabled=false; btn.textContent="⚡ FETCH ODDS";
 }
@@ -1290,14 +1325,14 @@ async function tryFetchFipInBackground(names, modal){
 
   // Try each approach in order
   const attempts=[
-    // 1. Direct JSON API (works if FanGraphs allows CORS for their API — sometimes they do)
-    { label:"FanGraphs API direct",  fn: ()=>doFetch(fgJsonUrl), type:"json" },
-    // 2. AllOrigins with JSON API
-    { label:"AllOrigins → FG API",   fn: ()=>doFetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(fgJsonUrl)}`), type:"json" },
-    // 3. Your Cloudflare Worker (old CSV, will work once you deploy the code)
-    { label:"Cloudflare Worker",     fn: ()=>doFetch(`https://fangraphs-proxy-worker.mbaranowski89.workers.dev`), type:"csv" },
-    // 4. AllOrigins with old CSV URL (may return HTML now but worth trying)
-    { label:"AllOrigins → FG CSV",   fn: ()=>doFetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`https://www.fangraphs.com/leaders.aspx?pos=all&stats=pit&lg=all&qual=0&type=1&season=${year}&month=0&season1=${year}&ind=0&team=0&rost=0&age=0&filter=&players=0&export=1`)}`), type:"csv" },
+    // 1. Your Cloudflare Worker /fip endpoint — most reliable, server-side fetch
+    { label:"Cloudflare Worker",    fn: ()=>doFetch(`${WORKER_URL}/fip`), type:"json" },
+    // 2. Direct JSON API (works if FanGraphs allows CORS — sometimes they do)
+    { label:"FanGraphs API direct", fn: ()=>doFetch(fgJsonUrl), type:"json" },
+    // 3. AllOrigins with JSON API
+    { label:"AllOrigins → FG API",  fn: ()=>doFetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(fgJsonUrl)}`), type:"json" },
+    // 4. AllOrigins with old CSV URL
+    { label:"AllOrigins → FG CSV",  fn: ()=>doFetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(`https://www.fangraphs.com/leaders.aspx?pos=all&stats=pit&lg=all&qual=0&type=1&season=${year}&month=0&season1=${year}&ind=0&team=0&rost=0&age=0&filter=&players=0&export=1`)}`), type:"csv" },
   ];
 
   let filled=0;
@@ -1310,21 +1345,22 @@ async function tryFetchFipInBackground(names, modal){
 
       if(attempt.type==="json"){
         // Parse FanGraphs JSON response
-        // Response shape: { data: [ {PlayerName, FIP, xFIP, ...}, ... ] }
+        // Worker /fip shape: { pitchers: [{name, fip, xfip}] }
+        // Direct FG API shape: { data: [{PlayerName, FIP, xFIP}] }
         let parsed;
         try{ parsed=JSON.parse(raw); }catch{ continue; }
-        const rows=parsed?.data||parsed?.Data||[];
+        const rows=parsed?.pitchers||parsed?.data||parsed?.Data||[];
         if(!Array.isArray(rows)||!rows.length) continue;
 
         // Build lookup by last name
         const lookup={};
         for(const row of rows){
-          const name=row.PlayerName||row.Name||row.name||"";
+          const name=row.name||row.PlayerName||row.Name||"";
           if(!name) continue;
           const ln=name.split(" ").pop().toLowerCase();
-          // FanGraphs field names vary — try common variants
-          const fip=String(row.FIP||row.fip||row["FIP-"]||"").trim();
-          const xfip=String(row.xFIP||row.xfip||row["xFIP-"]||"").trim();
+          // Handle both worker format (fip/xfip) and raw FG format (FIP/xFIP)
+          const fip=String(row.fip??row.FIP??row["FIP-"]??"").trim();
+          const xfip=String(row.xfip??row.xFIP??row["xFIP-"]??"").trim();
           if(ln) lookup[ln]={fip,xfip};
         }
 
