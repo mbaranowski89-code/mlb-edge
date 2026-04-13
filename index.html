@@ -924,15 +924,32 @@ function renderSummary(){
       const best=bestLineForTeam(g,side);
       if(!best.implied||!best.book)return;
 
-      // Vig-remove using the SAME book for both sides (critical for accuracy)
+      // Vig-remove using the SAME book for both sides
       const oppOddsObj = side==="away" ? g.homeOdds : g.awayOdds;
       const oppOddsFromSameBook = oppOddsObj[best.book];
       const oppImplied = americanToImplied(oppOddsFromSameBook);
 
-      let fairProb = best.implied; // fallback: no vig removal
+      let fairProb;
       if(oppImplied){
+        // Best case: same-book vig removal
         const v = removeVig(best.implied, oppImplied);
         fairProb = side==="away" ? v.f1 : v.f2;
+      } else {
+        // Fallback: find any book that has both sides and use that for vig removal
+        const allBooks = Object.keys(g.awayOdds).filter(b => b !== PINNACLE_KEY && g.homeOdds[b]);
+        let fallbackFair = null;
+        for(const book of allBooks){
+          const aImp = americanToImplied(g.awayOdds[book]);
+          const hImp = americanToImplied(g.homeOdds[book]);
+          if(aImp && hImp){
+            const v = removeVig(aImp, hImp);
+            fallbackFair = side==="away" ? v.f1 : v.f2;
+            break;
+          }
+        }
+        // If we still can't vig-remove, skip this row entirely rather than show garbage
+        if(fallbackFair === null) return;
+        fairProb = fallbackFair;
       }
       const edge=modelProb-fairProb;
       const k=kellyFraction(modelProb,best.odds);
