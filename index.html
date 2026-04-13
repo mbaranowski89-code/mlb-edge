@@ -185,7 +185,7 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
       <div><span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span></div>
       <div style="display:flex;align-items:center;gap:8px;">
         <div id="today-label"></div>
-        <div style="font-size:9px;color:#1e2d42;letter-spacing:1px;">v16</div>
+        <div style="font-size:9px;color:#1e2d42;letter-spacing:1px;">v17</div>
       </div>
     </div>
     <div id="btn-area">
@@ -943,7 +943,6 @@ async function fetchOdds(){
           ts:Date.now()
         };
       }
-      }
 
       return{
         id:stableId,
@@ -1238,19 +1237,21 @@ document.getElementById("btn-fetch").addEventListener("click",fetchOdds);
 document.getElementById("btn-add-header").addEventListener("click",()=>{games.push(emptyGame());render();});
 document.getElementById("btn-add-bottom").addEventListener("click",()=>{games.push(emptyGame());render();});
 
-// Opening lines panel
-document.getElementById("btn-set-open").addEventListener("click",()=>setAsOpenLines());
-document.getElementById("btn-clear-open").addEventListener("click",()=>{
+document.getElementById("btn-set-open").addEventListener("click",(e)=>{
+  e.stopPropagation();
+  setAsOpenLines();
+});
+document.getElementById("btn-clear-open").addEventListener("click",(e)=>{
+  e.stopPropagation();
   const date=getDate();
   Object.keys(openLines).filter(k=>k.endsWith(date)).forEach(k=>delete openLines[k]);
   saveOpen();
   renderOpenLines();
-  render(); // refresh movement flags on cards
+  render();
   setStatus("Opening lines cleared",null);
 });
 document.getElementById("open-lines-header").addEventListener("click",(e)=>{
-  // Don't toggle if clicking a button
-  if(e.target.tagName==="BUTTON")return;
+  if(e.target.closest("button"))return;
   const body=document.getElementById("open-lines-body");
   const toggle=document.getElementById("open-lines-toggle");
   const expanded=body.classList.toggle("expanded");
