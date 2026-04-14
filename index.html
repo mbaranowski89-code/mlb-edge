@@ -202,7 +202,7 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
         <span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span>
         <div id="header-meta">
           <span id="today-label"></span>
-          <span id="version-label">v22</span>
+          <span id="version-label">v24</span>
           <span id="req-display"></span>
         </div>
       </div>
@@ -465,23 +465,43 @@ function classifyGame(g, openLines, opptyLog){
     const edge=(retailF!==null&&pinFairSide!==null)?retailF-pinFairSide:null;
     const openFairSide=openFair?openFair[side==="away"?"f1":"f2"]:null;
 
-    // Steam: Pinnacle moved toward this team since open
+    // Steam: positive = Pinnacle moved toward this team (sharps bet this side)
     const steamShift=(pinFairSide!==null&&openFairSide!==null)?pinFairSide-openFairSide:null;
     const hasSteam=steamShift!==null&&steamShift>=0.015;
-
-    // Retail lag: best retail odds haven't caught up to where Pinnacle moved
-    // Proxy: retail vig-removed prob is still <= open Pinnacle fair (they're still giving the old price)
-    const openRetailFair=openFairSide; // if retail hasn't moved, their fair is near open Pinnacle fair
-    const hasRetailLag=(retailF!==null&&openFairSide!==null)&&(retailF<=openFairSide+0.005);
 
     // Beats current Pinnacle fair
     const beatsPinnacle=edge!==null&&edge>0;
 
+    // Retail lag window:
+    // Full window = how much Pinnacle moved (openFair → curFair)
+    // Remaining window = how much retail is still behind Pinnacle's move
+    // retailF - openFairSide: if positive, retail is still ABOVE where Pinnacle opened
+    //   meaning retail hasn't moved at all yet = full window open
+    // retailF - pinFairSide: if positive, retail is still above Pinnacle's CURRENT fair
+    //   meaning some window remains even if retail started to move
+    const retailVsOpen=(retailF!==null&&openFairSide!==null)?retailF-openFairSide:null;
+    const retailVsCurrent=edge; // same as retailF - pinFairSide
+    const totalMove=steamShift; // how far Pinnacle moved in our favor
+    // lagPct: what % of the original steam window is still exploitable
+    // 100% = retail hasn't moved at all, 0% = retail fully caught up
+    let lagPct=null;
+    if(totalMove&&totalMove>0&&retailVsOpen!==null){
+      // Window = from openFair to curFair (totalMove)
+      // Remaining = retailF - pinFairSide (if positive, window still open)
+      lagPct=retailVsCurrent!==null?Math.max(0,Math.min(100,(retailVsCurrent/totalMove)*100)):0;
+    }
+    const hasRetailLag=hasSteam&&beatsPinnacle&&lagPct!==null&&lagPct>5;
+    const windowClosing=hasRetailLag&&lagPct<50; // more than half closed
+
+    // Tier classification
+    // KEY RULE: if steam exists toward this side, always surface it (don't hide in pass)
+    // even if the retail lag is partially closed — show how much window remains
     let tier="pass";
     if(!hasPinnacle) tier="nopin";
-    else if(edge>=0.03&&hasSteam&&hasRetailLag&&beatsPinnacle) tier="t1";
-    else if(edge>=0&&(hasSteam||hasRetailLag)) tier="t2";
-    else if(edge>=0&&beatsPinnacle) tier="t2"; // beats Pinnacle even without steam
+    else if(edge>=0.03&&hasSteam&&hasRetailLag) tier="t1";      // full signal
+    else if(hasSteam&&beatsPinnacle) tier="t2";                 // steamed + still beats Pin
+    else if(hasSteam&&lagPct!==null&&lagPct>0) tier="t2";       // steamed, window partially open
+    else if(beatsPinnacle&&edge>=0.02) tier="t2";               // decent edge, no steam yet
 
     // Opportunity first-seen tracking
     const opptyKey=`${g.id}-${side}`;
@@ -490,14 +510,16 @@ function classifyGame(g, openLines, opptyLog){
       firstSeen=Date.now();
       opptyLog[opptyKey]=firstSeen;
     } else if(tier==="pass"||tier==="nopin"){
-      // Clear if it drops out of t1/t2
       delete opptyLog[opptyKey];
       firstSeen=null;
     }
-    const isNew=firstSeen&&(Date.now()-firstSeen)<5*60*1000; // new if <5 min old
+    const isNew=firstSeen&&(Date.now()-firstSeen)<5*60*1000;
 
     return{
-      side,tier,edge,pinFairSide,retailF,bl,steamShift,hasSteam,hasRetailLag,beatsPinnacle,firstSeen,isNew,
+      side,tier,edge,pinFairSide,retailF,bl,
+      steamShift,hasSteam,hasRetailLag,beatsPinnacle,
+      lagPct,windowClosing,retailVsOpen,
+      firstSeen,isNew,
     };
   });
 
@@ -566,9 +588,9 @@ function renderAnalysis(){
     });
   });
 
-  // Sort t1 by edge desc, t2 by edge desc
+  // Sort t1 by edge desc, t2 by lag window open % desc (most urgent first)
   t1Sides.sort((a,b)=>(b.s.edge||0)-(a.s.edge||0));
-  t2Sides.sort((a,b)=>(b.s.edge||0)-(a.s.edge||0));
+  t2Sides.sort((a,b)=>(b.s.lagPct||0)-(a.s.lagPct||0));
 
   // Update counts
   document.getElementById("t1-count").textContent=t1Sides.length;
@@ -641,13 +663,30 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
   const k=s.bl?kellyFraction(s.retailF,s.bl.odds):0;
   const betAmt=k>0?(k*frac*bank).toFixed(2):null;
 
-  // Window open time
+  // Window open time + lag window bar
   let windowHTML="";
   if(s.firstSeen){
     const age=Date.now()-s.firstSeen;
     const ageMin=Math.floor(age/60000);
-    const urgent=ageMin>30;
-    windowHTML=`<div class="bet-window${urgent?" bet-window-urgent":""}">${s.isNew?"🆕 Just appeared ":"⏱ Open "}${fmtMins(age)} ago${urgent?" — closing soon":""}</div>`;
+    const urgent=ageMin>30||s.windowClosing;
+    windowHTML=`<div class="bet-window${urgent?" bet-window-urgent":""}">${s.isNew?"🆕 Just appeared ":"⏱ Open "}${fmtMins(age)} ago${urgent?" — act soon":""}</div>`;
+  }
+
+  // Lag window bar — shows how much of the retail window is still open
+  let lagBarHTML="";
+  if(s.hasSteam&&s.lagPct!==null){
+    const pct=Math.round(s.lagPct);
+    const barColor=pct>60?"#22c55e":pct>25?"#f59e0b":"#ef4444";
+    const label=pct>60?"WINDOW OPEN":pct>25?"CLOSING":"NEARLY CLOSED";
+    lagBarHTML=`<div style="margin-bottom:6px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+        <span style="font-size:8px;color:#374151;letter-spacing:1px;">RETAIL LAG WINDOW</span>
+        <span style="font-size:9px;font-weight:800;color:${barColor}">${label} · ${pct}%</span>
+      </div>
+      <div style="height:4px;background:#1e2d42;border-radius:3px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:${barColor};border-radius:3px;transition:width 0.3s;"></div>
+      </div>
+    </div>`;
   }
 
   // Steam badge
@@ -673,18 +712,24 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
   // New badge
   const newBadge=s.isNew?`<span class="badge badge-new">NEW</span>`:"";
 
-  // Movement detail
+  // Movement detail — show for any game with opening lines, regardless of steam direction
   let moveDetail="";
   if(openFair&&s.steamShift!==null){
     const openFairSide=s.side==="away"?openFair.f1:openFair.f2;
     const curFairSide=s.pinFairSide||0;
     const pinOpen=s.side==="away"?openLines[g.id]?.awayPin:openLines[g.id]?.homePin;
     const pinCur=s.side==="away"?g.awayOdds[PIN_KEY]:g.homeOdds[PIN_KEY];
+    const shift=s.steamShift*100;
+    const absPct=Math.abs(shift).toFixed(1);
+    const movedToward=shift>0?teamName:oppName;
+    const arrowColor=shift>0?"#22c55e":"#f87171";
+    const arrowDir=shift>0?"▲":"▼";
+    const shiftLabel=shift>0?`+${absPct}%`:`-${absPct}%`;
     moveDetail=`<div class="bet-movement">
       <div class="bet-movement-lbl">PINNACLE LINE MOVEMENT</div>
       Open: <strong>${fmtOdds(pinOpen)}</strong> (fair ${fmtPct(openFairSide)}) →
       Now: <strong style="color:#38bdf8">${fmtOdds(pinCur)}</strong> (fair ${fmtPct(curFairSide)})
-      <strong style="color:#22c55e"> ▲ +${(s.steamShift*100).toFixed(1)}% toward ${esc(teamName)}</strong>
+      <strong style="color:${arrowColor}"> ${arrowDir} ${shiftLabel} toward ${esc(movedToward)}</strong>
     </div>`;
   }
 
@@ -739,6 +784,7 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
       ${moveDetail}
 
       ${betAmt?`<div class="bet-kelly">Kelly: $${betAmt} <span style="color:#374151;font-weight:400">(${(k*frac*100).toFixed(1)}% of bankroll)</span></div>`:""}
+      ${lagBarHTML}
       ${windowHTML}
 
       <div class="bet-actions">
