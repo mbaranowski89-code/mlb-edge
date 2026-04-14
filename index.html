@@ -194,7 +194,7 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
       <div><span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span></div>
       <div style="display:flex;align-items:center;gap:8px;">
         <div id="today-label"></div>
-        <div style="font-size:9px;color:#1e2d42;letter-spacing:1px;">v19</div>
+        <div style="font-size:9px;color:#1e2d42;letter-spacing:1px;">v20</div>
       </div>
     </div>
     <div id="btn-area">
@@ -337,6 +337,16 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
     <div style="font-size:9px;color:#374151;margin-top:7px;line-height:1.6;">Consistently beating the closing line is the strongest indicator of a real edge — more reliable than win rate alone.</div>
   </div>
   <div id="stats-empty" class="empty-state">LOG BETS TO SEE STATS</div>
+</div>
+
+<!-- ERROR DIALOG -->
+<div id="error-dialog">
+  <div id="error-backdrop"></div>
+  <div id="error-box">
+    <div id="error-title">⚠ ERROR</div>
+    <div id="error-message"></div>
+    <button id="error-close">CLOSE</button>
+  </div>
 </div>
 
 <script>
@@ -1355,15 +1365,5 @@ openLines=loadOpen();
 render();
 renderOpenLines();
 </script>
-<!-- ERROR DIALOG -->
-<div id="error-dialog">
-  <div id="error-backdrop"></div>
-  <div id="error-box">
-    <div id="error-title">⚠ ERROR</div>
-    <div id="error-message"></div>
-    <button id="error-close">CLOSE</button>
-  </div>
-</div>
-
 </body>
 </html>
