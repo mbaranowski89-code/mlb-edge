@@ -156,6 +156,15 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
 
 #btn-add-bottom{width:100%;background:#0a1220;border:1px dashed #1e2d42;color:#2d3f55;border-radius:8px;padding:12px;cursor:pointer;font-size:9px;letter-spacing:2px;margin-top:4px;font-weight:700;}
 
+/* ERROR DIALOG */
+#error-dialog{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;padding:20px;}
+#error-dialog.visible{display:flex;}
+#error-backdrop{position:absolute;inset:0;background:#000000dd;}
+#error-box{position:relative;background:#0a1220;border:1px solid #ef444466;border-radius:12px;padding:20px;max-width:500px;width:100%;max-height:70vh;overflow-y:auto;}
+#error-title{font-size:11px;font-weight:800;color:#f87171;letter-spacing:2px;margin-bottom:10px;}
+#error-message{font-size:12px;color:#9ca3af;line-height:1.6;word-break:break-all;white-space:pre-wrap;font-family:'Courier New',monospace;}
+#error-close{margin-top:14px;background:#7f1d1d;color:#f87171;border:1px solid #ef444444;padding:8px 20px;border-radius:6px;cursor:pointer;font-size:10px;font-weight:800;width:100%;}
+
 /* OPENING LINES PANEL */
 #open-lines-wrap{background:#080e1a;border:1px solid #1e2d42;border-radius:10px;overflow:hidden;margin-bottom:14px;}
 #open-lines-header{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid #1e2d42;cursor:pointer;}
@@ -185,7 +194,7 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
       <div><span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span></div>
       <div style="display:flex;align-items:center;gap:8px;">
         <div id="today-label"></div>
-        <div style="font-size:9px;color:#1e2d42;letter-spacing:1px;">v18</div>
+        <div style="font-size:9px;color:#1e2d42;letter-spacing:1px;">v19</div>
       </div>
     </div>
     <div id="btn-area">
@@ -862,17 +871,19 @@ async function fetchOdds(){
   setStatus(`FETCHING ${date}...`,null);
 
   try{
-    // Use Eastern Time boundaries so we don't bleed into adjacent days.
-    // EDT = UTC-4, EST = UTC-5. MLB season runs EDT so use -4.
-    // A date of "2026-04-14" in ET = 04:00 UTC on 4/14 to 04:00 UTC on 4/15.
-    const etOffsetHours = 4; // EDT (UTC-4); change to 5 in winter (EST)
-    const dateFrom = new Date(`${date}T00:00:00`);
-    dateFrom.setUTCHours(etOffsetHours); // midnight ET = 04:00 UTC
-    const dateTo = new Date(dateFrom);
-    dateTo.setUTCDate(dateTo.getUTCDate() + 1); // next day 04:00 UTC
+    // Build ET-aware UTC boundaries directly as ISO strings.
+    // MLB season = EDT (UTC-4). Midnight ET = 04:00 UTC same day.
+    // So "April 14 ET" = 2026-04-14T04:00:00Z to 2026-04-15T04:00:00Z
+    const [y,mo,d] = date.split("-").map(Number);
+    // Start: selected date at 04:00 UTC (= midnight EDT)
+    const fromISO = `${date}T04:00:00Z`;
+    // End: next calendar day at 04:00 UTC (= midnight EDT next day)
+    const nextDay = new Date(Date.UTC(y, mo-1, d+1));
+    const nextDate = nextDay.toISOString().split("T")[0];
+    const toISO = `${nextDate}T04:00:00Z`;
 
-    const df=encodeURIComponent(dateFrom.toISOString());
-    const dt=encodeURIComponent(dateTo.toISOString());
+    const df=encodeURIComponent(fromISO);
+    const dt=encodeURIComponent(toISO);
     const dFil=`&commenceTimeFrom=${df}&commenceTimeTo=${dt}`;
     const usUrl=`https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h&oddsFormat=american&bookmakers=${US_BOOKS}${dFil}`;
     const pinUrl=`https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h&oddsFormat=american&bookmakers=pinnacle${dFil}`;
@@ -885,7 +896,13 @@ async function fetchOdds(){
     const rem=usRes.headers.get("x-requests-remaining");
     if(rem){const el=document.getElementById("req-remaining");el.style.display="inline";el.textContent=rem+" REQ LEFT";}
 
-    if(!usRes.ok){const t=await usRes.text();setStatus("⚠ "+usRes.status+" "+t.slice(0,40),false);return;}
+    if(!usRes.ok){
+      const t=await usRes.text();
+      const msg=`The Odds API returned HTTP ${usRes.status}\n\nURL: ${usUrl.replace(ODDS_API_KEY,"[KEY]")}\n\nResponse:\n${t}`;
+      setStatus("⚠ API ERROR "+usRes.status,false);
+      showError("Odds API Error",msg);
+      return;
+    }
     const usData=await usRes.json();
     const pinData=pinRes.ok?await pinRes.json():[];
 
@@ -972,7 +989,10 @@ async function fetchOdds(){
     const openCount=Object.keys(openLines).filter(k=>k.endsWith(date)).length;
     setStatus(`✓ ${games.length} GAMES · ${pinCount} w/Pinnacle · ${openCount} open lines`,true);
 
-  }catch(err){setStatus("⚠ "+err.message.slice(0,50),false);}
+  }catch(err){
+    setStatus("⚠ FETCH FAILED",false);
+    showError("Fetch Failed", err.message+"\n\nStack:\n"+err.stack);
+  }
   btn.disabled=false; btn.textContent="⚡ FETCH";
 }
 
@@ -981,6 +1001,13 @@ function setStatus(msg,ok){
   el.style.display="inline";
   el.style.color=ok===true?"#22c55e":"#f59e0b";
   el.textContent=msg;
+}
+
+function showError(title, detail){
+  const dlg=document.getElementById("error-dialog");
+  document.getElementById("error-title").textContent="⚠ "+title;
+  document.getElementById("error-message").textContent=detail||"Unknown error";
+  dlg.classList.add("visible");
 }
 
 // ═══════════════════════════════════════════
@@ -1242,6 +1269,13 @@ document.getElementById("game-date").addEventListener("change",()=>{
     d.toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"}).toUpperCase();
 });
 
+document.getElementById("error-close").addEventListener("click",()=>{
+  document.getElementById("error-dialog").classList.remove("visible");
+});
+document.getElementById("error-backdrop").addEventListener("click",()=>{
+  document.getElementById("error-dialog").classList.remove("visible");
+});
+
 document.getElementById("btn-fetch").addEventListener("click",fetchOdds);
 document.getElementById("btn-add-header").addEventListener("click",()=>{games.push(emptyGame());render();});
 document.getElementById("btn-add-bottom").addEventListener("click",()=>{games.push(emptyGame());render();});
@@ -1321,5 +1355,15 @@ openLines=loadOpen();
 render();
 renderOpenLines();
 </script>
+<!-- ERROR DIALOG -->
+<div id="error-dialog">
+  <div id="error-backdrop"></div>
+  <div id="error-box">
+    <div id="error-title">⚠ ERROR</div>
+    <div id="error-message"></div>
+    <button id="error-close">CLOSE</button>
+  </div>
+</div>
+
 </body>
 </html>
