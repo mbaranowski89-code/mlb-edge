@@ -202,7 +202,7 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
         <span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span>
         <div id="header-meta">
           <span id="today-label"></span>
-          <span id="version-label">v24</span>
+          <span id="version-label">v25</span>
           <span id="req-display"></span>
         </div>
       </div>
@@ -269,6 +269,20 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
     </div>
     <div class="tier-body open" id="t2-body">
       <div class="tier-empty" id="t2-empty">No Tier 2 opportunities</div>
+    </div>
+  </div>
+
+  <!-- PASS -->
+  <div class="tier-section">
+    <div class="tier-header tier-header-pass" data-tier="pass">
+      <span class="tier-dot" style="background:#374151;"></span>
+      <span class="tier-label" style="color:#374151;">PASS</span>
+      <span class="tier-count pass-count" id="pass-count">0</span>
+      <span style="font-size:9px;color:#2d3f55;margin-left:4px;">No edge or signal against you</span>
+      <span class="tier-toggle" id="pass-toggle">▶</span>
+    </div>
+    <div class="tier-body" id="pass-body">
+      <div class="tier-empty" id="pass-empty">No games to display</div>
     </div>
   </div>
 
@@ -549,9 +563,9 @@ function updateReqDisplay(){
   const monthTotal=Object.entries(reqLog)
     .filter(([d])=>d.startsWith(today.slice(0,7)))
     .reduce((s,[,v])=>s+v,0);
-  const remaining=500-monthTotal;
+  const remaining=420-monthTotal;
   const el=document.getElementById("req-display");
-  const color=remaining<50?"#f87171":remaining<100?"#f59e0b":"#374151";
+  const color=remaining<42?"#f87171":remaining<84?"#f59e0b":"#374151";
   el.style.color=color;
   el.textContent=`${todayCount} today · ${remaining} left`;
 }
@@ -574,8 +588,8 @@ function renderAnalysis(){
   const classified=games.map(g=>classifyGame(g,openLines,opptyLog));
   saveState(STORAGE_OPPTY,opptyLog);
 
-  // Bucket by tier (each game can have t1/t2 on different sides)
-  const t1Sides=[], t2Sides=[], nopinGames=[];
+  // Bucket by tier
+  const t1Sides=[], t2Sides=[], passSides=[], nopinGames=[];
 
   classified.forEach(({g,fair,hasPinnacle,openFair,sides})=>{
     if(!hasPinnacle){
@@ -585,16 +599,19 @@ function renderAnalysis(){
     sides.forEach(s=>{
       if(s.tier==="t1") t1Sides.push({g,s,fair,openFair});
       else if(s.tier==="t2") t2Sides.push({g,s,fair,openFair});
+      else passSides.push({g,s,fair,openFair});
     });
   });
 
-  // Sort t1 by edge desc, t2 by lag window open % desc (most urgent first)
+  // Sort
   t1Sides.sort((a,b)=>(b.s.edge||0)-(a.s.edge||0));
   t2Sides.sort((a,b)=>(b.s.lagPct||0)-(a.s.lagPct||0));
+  passSides.sort((a,b)=>(b.s.edge||0)-(a.s.edge||0));
 
   // Update counts
   document.getElementById("t1-count").textContent=t1Sides.length;
   document.getElementById("t2-count").textContent=t2Sides.length;
+  document.getElementById("pass-count").textContent=passSides.length;
   document.getElementById("nopin-count").textContent=nopinGames.length;
 
   // Render Tier 1
@@ -602,7 +619,6 @@ function renderAnalysis(){
   const t1Empty=document.getElementById("t1-empty");
   if(!t1Sides.length){
     t1Empty.style.display="block";
-    // Remove any existing cards
     Array.from(t1Body.children).forEach(c=>{if(c!==t1Empty)c.remove();});
   } else {
     t1Empty.style.display="none";
@@ -623,6 +639,20 @@ function renderAnalysis(){
     Array.from(t2Body.children).forEach(c=>{if(c!==t2Empty)c.remove();});
     t2Sides.forEach(({g,s,fair,openFair})=>{
       t2Body.appendChild(buildBetCard(g,s,fair,openFair,frac,bank,"t2"));
+    });
+  }
+
+  // Render Pass
+  const passBody=document.getElementById("pass-body");
+  const passEmpty=document.getElementById("pass-empty");
+  if(!passSides.length){
+    passEmpty.style.display="block";
+    Array.from(passBody.children).forEach(c=>{if(c!==passEmpty)c.remove();});
+  } else {
+    passEmpty.style.display="none";
+    Array.from(passBody.children).forEach(c=>{if(c!==passEmpty)c.remove();});
+    passSides.forEach(({g,s,fair,openFair})=>{
+      passBody.appendChild(buildBetCard(g,s,fair,openFair,frac,bank,"pass"));
     });
   }
 
@@ -707,7 +737,8 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
   // Tier badge
   const tierBadge=tier==="t1"?
     `<span class="badge badge-t1">🔥 TAKE</span>`:
-    `<span class="badge badge-t2">👀 WATCH</span>`;
+    tier==="t2"?`<span class="badge badge-t2">👀 WATCH</span>`:
+    `<span class="badge badge-pass">— PASS</span>`;
 
   // New badge
   const newBadge=s.isNew?`<span class="badge badge-new">NEW</span>`:"";
@@ -788,10 +819,10 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
       ${windowHTML}
 
       <div class="bet-actions">
-        <button class="btn-log-bet" data-log='${JSON.stringify({
+        ${tier!=="pass"?`<button class="btn-log-bet" data-log='${JSON.stringify({
           matchup,team:teamName,book:s.bl?.book||"",odds:s.bl?.odds||"",
           pinfair:s.pinFairSide?+(s.pinFairSide*100).toFixed(1):""
-        })}'>+ LOG BET</button>
+        })}'>+ LOG BET</button>`:""}
         <button class="btn-card-detail" data-gid="${esc(g.id)}">ALL BOOKS ▼</button>
       </div>
 
@@ -801,19 +832,22 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
     </div>
   `;
 
-  // Wire log bet
-  card.querySelector(".btn-log-bet").addEventListener("click",()=>{
-    const d=JSON.parse(card.querySelector(".btn-log-bet").dataset.log);
-    document.getElementById("log-date").value=new Date().toISOString().split("T")[0];
-    document.getElementById("log-matchup").value=d.matchup||"";
-    document.getElementById("log-team").value=d.team||"";
-    document.getElementById("log-book").value=BOOK_LABELS[d.book]||d.book||"";
-    document.getElementById("log-odds").value=d.odds||"";
-    document.getElementById("log-pinfair").value=d.pinfair||"";
-    document.getElementById("log-stake").value="";
-    document.getElementById("log-close").value="";
-    switchTab("log");
-  });
+  // Wire log bet (only on t1/t2 cards)
+  const logBtn=card.querySelector(".btn-log-bet");
+  if(logBtn){
+    logBtn.addEventListener("click",()=>{
+      const d=JSON.parse(logBtn.dataset.log);
+      document.getElementById("log-date").value=new Date().toISOString().split("T")[0];
+      document.getElementById("log-matchup").value=d.matchup||"";
+      document.getElementById("log-team").value=d.team||"";
+      document.getElementById("log-book").value=BOOK_LABELS[d.book]||d.book||"";
+      document.getElementById("log-odds").value=d.odds||"";
+      document.getElementById("log-pinfair").value=d.pinfair||"";
+      document.getElementById("log-stake").value="";
+      document.getElementById("log-close").value="";
+      switchTab("log");
+    });
+  }
 
   // Wire detail toggle
   card.querySelector(".btn-card-detail").addEventListener("click",()=>{
@@ -1119,7 +1153,7 @@ function switchTab(tab){
 document.querySelectorAll(".nav-tab").forEach(t=>t.addEventListener("click",()=>switchTab(t.dataset.tab)));
 
 // Tier section toggles
-["t1","t2","nopin"].forEach(tier=>{
+["t1","t2","pass","nopin"].forEach(tier=>{
   document.querySelector(`[data-tier="${tier}"]`).addEventListener("click",()=>{
     const body=document.getElementById(`${tier}-body`);
     const toggle=document.getElementById(`${tier}-toggle`);
