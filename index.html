@@ -185,7 +185,7 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
       <div><span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span></div>
       <div style="display:flex;align-items:center;gap:8px;">
         <div id="today-label"></div>
-        <div style="font-size:9px;color:#1e2d42;letter-spacing:1px;">v17</div>
+        <div style="font-size:9px;color:#1e2d42;letter-spacing:1px;">v18</div>
       </div>
     </div>
     <div id="btn-area">
@@ -862,8 +862,17 @@ async function fetchOdds(){
   setStatus(`FETCHING ${date}...`,null);
 
   try{
-    const df=encodeURIComponent(date+"T00:00:00Z");
-    const dt=encodeURIComponent(date+"T23:59:59Z");
+    // Use Eastern Time boundaries so we don't bleed into adjacent days.
+    // EDT = UTC-4, EST = UTC-5. MLB season runs EDT so use -4.
+    // A date of "2026-04-14" in ET = 04:00 UTC on 4/14 to 04:00 UTC on 4/15.
+    const etOffsetHours = 4; // EDT (UTC-4); change to 5 in winter (EST)
+    const dateFrom = new Date(`${date}T00:00:00`);
+    dateFrom.setUTCHours(etOffsetHours); // midnight ET = 04:00 UTC
+    const dateTo = new Date(dateFrom);
+    dateTo.setUTCDate(dateTo.getUTCDate() + 1); // next day 04:00 UTC
+
+    const df=encodeURIComponent(dateFrom.toISOString());
+    const dt=encodeURIComponent(dateTo.toISOString());
     const dFil=`&commenceTimeFrom=${df}&commenceTimeTo=${dt}`;
     const usUrl=`https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?apiKey=${ODDS_API_KEY}&regions=us&markets=h2h&oddsFormat=american&bookmakers=${US_BOOKS}${dFil}`;
     const pinUrl=`https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h&oddsFormat=american&bookmakers=pinnacle${dFil}`;
