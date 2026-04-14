@@ -202,7 +202,7 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
         <span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span>
         <div id="header-meta">
           <span id="today-label"></span>
-          <span id="version-label">v21</span>
+          <span id="version-label">v22</span>
           <span id="req-display"></span>
         </div>
       </div>
@@ -460,7 +460,6 @@ function classifyGame(g, openLines, opptyLog){
   const sides=["away","home"].map(side=>{
     const bl=bestRetailLine(g,side);
     if(!bl) return{side,tier:"nodata"};
-    const pinF=fair?.(side==="away"?fair.away:fair.home)||null; // safe access
     const pinFairSide=fair?fair[side]:null;
     const retailF=bl?vigRemovedRetail(g,side,bl.book):null;
     const edge=(retailF!==null&&pinFairSide!==null)?retailF-pinFairSide:null;
