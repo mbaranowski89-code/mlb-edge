@@ -211,7 +211,7 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
         <span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span>
         <div id="header-meta">
           <span id="today-label"></span>
-          <span id="version-label">v26</span>
+          <span id="version-label">v28</span>
           <span id="req-display"></span>
         </div>
       </div>
@@ -418,7 +418,11 @@ function pinFairProbs(g){
   return{away:v.f1,home:v.f2};
 }
 
+// Tie-break priority when implied odds are equal
+const BOOK_PRIORITY=["fanduel","draftkings","espnbet","betmgm","caesars","bet365"];
+
 // Best retail line for a side (highest odds = lowest implied, excludes Pinnacle)
+// Tie-break by BOOK_PRIORITY order
 function bestRetailLine(g,side){
   const obj=side==="away"?g.awayOdds:g.homeOdds;
   let best=null;
@@ -426,7 +430,17 @@ function bestRetailLine(g,side){
     if(book===PIN_KEY) continue;
     const imp=toImp(odds);
     if(!imp) continue;
-    if(!best||imp<best.implied) best={book,odds,implied:imp};
+    if(!best) { best={book,odds,implied:imp}; continue; }
+    const diff=imp-best.implied;
+    if(diff<-0.0001){ // strictly better
+      best={book,odds,implied:imp};
+    } else if(Math.abs(diff)<=0.0001){ // tie — use priority
+      const curPri=BOOK_PRIORITY.indexOf(book);
+      const bestPri=BOOK_PRIORITY.indexOf(best.book);
+      const curRank=curPri===-1?999:curPri;
+      const bestRank=bestPri===-1?999:bestPri;
+      if(curRank<bestRank) best={book,odds,implied:imp};
+    }
   }
   return best;
 }
@@ -844,6 +858,28 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
     </div>
   </div>`;
 
+  // Best book display with deep link
+  const BOOK_URLS={
+    fanduel:    "https://sportsbook.fanduel.com/baseball/mlb",
+    draftkings: "https://sportsbook.draftkings.com/leagues/baseball/mlb",
+    espnbet:    "https://espnbet.com/sport/baseball",
+    betmgm:     "https://sports.betmgm.com/en/sports/baseball-23",
+    caesars:    "https://sportsbook.caesars.com/us/oh/bet/baseball",
+    bet365:     "https://www.bet365.com/#/AS/B4/",
+  };
+  const bookColor=s.bl?.book==="fanduel"?"#a855f7":s.bl?.book==="draftkings"?"#22c55e":s.bl?.book==="espnbet"?"#f97316":s.bl?.book==="betmgm"?"#eab308":"#9ca3af";
+  const bookUrl=s.bl?BOOK_URLS[s.bl.book]||null:null;
+  const bestBookHTML=s.bl?`<a href="${bookUrl||"#"}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:space-between;background:#060b14;border:1px solid ${bookColor}44;border-radius:5px;padding:7px 10px;margin-bottom:8px;text-decoration:none;cursor:pointer;">
+    <div>
+      <div style="font-size:8px;color:#374151;letter-spacing:1px;margin-bottom:2px;">BET AT → TAP TO OPEN</div>
+      <div style="font-size:11px;font-weight:800;color:${bookColor}">${BOOK_LABELS[s.bl.book]||s.bl.book} ↗</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:8px;color:#374151;letter-spacing:1px;margin-bottom:2px;">ODDS</div>
+      <div style="font-size:18px;font-weight:800;color:#f9fafb;">${fmtOdds(s.bl.odds)}</div>
+    </div>
+  </a>`:"";
+
   card.innerHTML=`
     <div class="bet-card-header">
       <div>
@@ -854,6 +890,7 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
     </div>
     <div class="bet-main">
       ${scorecard}
+      ${bestBookHTML}
       ${moveDetail}
       ${betAmt?`<div class="bet-kelly">Kelly: $${betAmt} <span style="color:#374151;font-weight:400">(${(k*frac*100).toFixed(1)}% of bankroll)</span></div>`:""}
       ${windowHTML}
