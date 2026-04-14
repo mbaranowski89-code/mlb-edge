@@ -120,7 +120,16 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
 .badge-new{background:#3b0764;color:#d8b4fe;border:1px solid #a855f744;animation:pulse 1.5s infinite;}
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.6;}}
 
-/* ── GAME DETAIL (expanded) ── */
+/* ── SIGNAL SCORECARD ── */
+.signal-scorecard{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:10px;}
+.signal-cell{background:#060b14;border-radius:6px;padding:8px 6px;text-align:center;border:1px solid #1e2d42;}
+.signal-lbl{font-size:8px;letter-spacing:1px;margin-bottom:4px;color:#374151;}
+.signal-val{font-size:15px;font-weight:800;line-height:1;}
+.signal-sub{font-size:8px;margin-top:3px;font-weight:600;}
+.sig-red{border-color:#ef444444;}.sig-red .signal-val{color:#f87171;}.sig-red .signal-sub{color:#7f1d1d;}
+.sig-yellow{border-color:#f59e0b44;}.sig-yellow .signal-val{color:#fbbf24;}.sig-yellow .signal-sub{color:#78350f;}
+.sig-green{border-color:#22c55e44;}.sig-green .signal-val{color:#4ade80;}.sig-green .signal-sub{color:#14532d;}
+.sig-none{border-color:#1e2d42;}.sig-none .signal-val{color:#374151;}.sig-none .signal-sub{color:#1e2d42;}
 .detail-wrap{border-top:1px solid #1e2d42;padding:10px 12px;display:none;}
 .detail-wrap.open{display:block;}
 .detail-books-grid{display:grid;grid-template-columns:110px 1fr 1fr;gap:5px;align-items:center;margin-bottom:4px;font-size:11px;}
@@ -202,7 +211,7 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
         <span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span>
         <div id="header-meta">
           <span id="today-label"></span>
-          <span id="version-label">v25</span>
+          <span id="version-label">v26</span>
           <span id="req-display"></span>
         </div>
       </div>
@@ -393,6 +402,13 @@ function toImp(odds){
   return o>0 ? 100/(o+100) : Math.abs(o)/(Math.abs(o)+100);
 }
 function removeVig(i1,i2){ const t=i1+i2; return{f1:i1/t,f2:i2/t}; }
+
+// Convert vig-removed fair probability back to American odds
+function fairToAmerican(prob){
+  if(!prob||prob<=0||prob>=1) return null;
+  if(prob>=0.5) return Math.round(-(prob/(1-prob))*100);
+  return Math.round(((1-prob)/prob)*100);
+}
 
 function pinFairProbs(g){
   const pa=toImp(g.awayOdds[PIN_KEY]);
@@ -764,60 +780,83 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
     </div>`;
   }
 
+  // ── 4-signal scorecard ──────────────────────────────
+
+  // Signal 1: Steam %
+  const steamPct=s.steamShift!==null?s.steamShift*100:null;
+  const steamCls=steamPct===null?"sig-none":steamPct>=3?"sig-green":steamPct>=1.5?"sig-yellow":"sig-red";
+  const steamLabel=steamPct===null?"—":`${steamPct>0?"+":""}${steamPct.toFixed(1)}%`;
+  const steamSub=steamPct===null?"NO DATA":steamPct>=3?"STRONG":steamPct>=1.5?"MEANINGFUL":"WEAK";
+
+  // Signal 2: Retail lag window %
+  const lagPctVal=s.lagPct!==null?Math.round(s.lagPct):null;
+  const lagCls=lagPctVal===null?"sig-none":lagPctVal>=60?"sig-green":lagPctVal>=25?"sig-yellow":"sig-red";
+  const lagLabel=lagPctVal===null?"—":`${lagPctVal}%`;
+  const lagSub=lagPctVal===null?"NO STEAM":lagPctVal>=60?"OPEN":lagPctVal>=25?"CLOSING":"CLOSED";
+
+  // Signal 3: Retail odds vs Pinnacle fair odds (Option C)
+  const pinFairAmerican=fairToAmerican(s.pinFairSide);
+  const retailOdds=s.bl?parseFloat(s.bl.odds):null;
+  let oddsGap=null;
+  if(pinFairAmerican!==null&&retailOdds!==null){
+    // Positive gap = retail is more generous than Pinnacle fair (good for bettor)
+    // Both negative (favorites): retail -120, pin fair -130 → gap = -120-(-130) = +10 ✓
+    // Both positive (underdogs): retail +130, pin fair +120 → gap = 130-120 = +10 ✓
+    oddsGap=retailOdds-pinFairAmerican;
+  }
+  const gapCls=oddsGap===null?"sig-none":oddsGap>=10?"sig-green":oddsGap>=5?"sig-yellow":oddsGap>=0?"sig-red":"sig-red";
+  const gapLabel=oddsGap===null?"—":`${oddsGap>0?"+":""}${Math.round(oddsGap)}`;
+  const gapSub=oddsGap===null?"NO DATA":oddsGap>=10?"STRONG LAG":oddsGap>=5?"SOME LAG":oddsGap>=0?"MINIMAL":"RETAIL AHEAD";
+  // Sub-labels showing the actual two numbers
+  const retailOddsStr=retailOdds!==null?fmtOdds(retailOdds):"—";
+  const pinFairOddsStr=pinFairAmerican!==null?fmtOdds(pinFairAmerican):"—";
+
+  // Signal 4: Edge %
+  const edgePct=s.edge!==null?s.edge*100:null;
+  const edgeCls2=edgePct===null?"sig-none":edgePct>=3?"sig-green":edgePct>=2?"sig-yellow":edgePct>=0?"sig-red":"sig-red";
+  const edgeLabel=edgePct===null?"—":`${edgePct>0?"+":""}${edgePct.toFixed(1)}%`;
+  const edgeSub=edgePct===null?"NO DATA":edgePct>=3?"STRONG":edgePct>=2?"MARGINAL":edgePct>=0?"WEAK":"NEGATIVE";
+
+  const scorecard=`<div class="signal-scorecard">
+    <div class="signal-cell ${steamCls}">
+      <div class="signal-lbl">STEAM</div>
+      <div class="signal-val">${steamLabel}</div>
+      <div class="signal-sub">${steamSub}</div>
+    </div>
+    <div class="signal-cell ${lagCls}">
+      <div class="signal-lbl">LAG WINDOW</div>
+      <div class="signal-val">${lagLabel}</div>
+      <div class="signal-sub">${lagSub}</div>
+    </div>
+    <div class="signal-cell ${gapCls}">
+      <div class="signal-lbl">ODDS GAP</div>
+      <div class="signal-val">${gapLabel}</div>
+      <div class="signal-sub" style="display:flex;justify-content:center;gap:3px;font-size:8px;">
+        <span style="color:#22c55e">${retailOddsStr}</span>
+        <span style="color:#374151">vs</span>
+        <span style="color:#f59e0b">${pinFairOddsStr}</span>
+      </div>
+    </div>
+    <div class="signal-cell ${edgeCls2}">
+      <div class="signal-lbl">EDGE</div>
+      <div class="signal-val">${edgeLabel}</div>
+      <div class="signal-sub">${edgeSub}</div>
+    </div>
+  </div>`;
+
   card.innerHTML=`
     <div class="bet-card-header">
-      <span class="bet-matchup">${esc(matchup)}</span>
-      <div class="bet-card-badges">${newBadge}${tierBadge}${edgeBadge}</div>
+      <div>
+        <span class="bet-matchup">${esc(matchup)}</span>
+        <div style="font-size:12px;font-weight:800;color:#f9fafb;margin-top:2px;">${esc(teamName)} <span style="color:#374151;font-size:10px;font-weight:400">vs ${esc(oppName)}</span></div>
+      </div>
+      <div class="bet-card-badges">${newBadge}${tierBadge}</div>
     </div>
     <div class="bet-main">
-      <div class="bet-teams-row">
-        <div class="bet-team-block">
-          <div class="bet-team-name">${esc(teamName)}</div>
-          <div class="bet-team-sub">BET THIS SIDE</div>
-        </div>
-        <div class="bet-team-block" style="text-align:right">
-          <div class="bet-team-name" style="color:#6b7280">${esc(oppName)}</div>
-          <div class="bet-team-sub">OPPONENT</div>
-        </div>
-      </div>
-
-      <div class="bet-stats-row">
-        <div class="bet-stat">
-          <div class="bet-stat-lbl">PIN FAIR</div>
-          <div class="bet-stat-val" style="color:#f59e0b">${fmtPct(s.pinFairSide)}</div>
-        </div>
-        <div class="bet-stat">
-          <div class="bet-stat-lbl">RETAIL FAIR</div>
-          <div class="bet-stat-val" style="color:#e5e7eb">${fmtPct(s.retailF)}</div>
-        </div>
-        <div class="bet-stat">
-          <div class="bet-stat-lbl">EDGE</div>
-          <div class="bet-stat-val ${edgeCls.replace("badge-","bet-stat-val-")}" style="color:${s.edge>=0.05?"#7dd3fc":s.edge>=0.025?"#4ade80":s.edge>0?"#fbbf24":"#f87171"}">${edgeStr}</div>
-        </div>
-      </div>
-
-      <div class="bet-books-row">
-        <div class="bet-book-cell">
-          <div class="bet-book-name" style="color:#22c55e">BEST RETAIL</div>
-          <div style="font-size:9px;color:#6b7280;margin-bottom:2px;">${s.bl?BOOK_LABELS[s.bl.book]:""}</div>
-          <div class="bet-book-odds">${s.bl?fmtOdds(s.bl.odds):"—"}</div>
-          <div class="bet-book-implied">${s.retailF?`Fair: ${fmtPct(s.retailF)}`:"—"}</div>
-        </div>
-        <div class="bet-book-cell">
-          <div class="bet-book-name" style="color:#f59e0b">PINNACLE ⚡</div>
-          <div style="font-size:9px;color:#6b7280;margin-bottom:2px;">Benchmark</div>
-          <div class="bet-book-odds">${fmtOdds(s.side==="away"?g.awayOdds[PIN_KEY]:g.homeOdds[PIN_KEY])}</div>
-          <div class="bet-book-implied">${s.pinFairSide?`Fair: ${fmtPct(s.pinFairSide)}`:"—"}</div>
-        </div>
-      </div>
-
-      ${steamBadge||lagBadge?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px;">${steamBadge}${lagBadge}</div>`:""}
+      ${scorecard}
       ${moveDetail}
-
       ${betAmt?`<div class="bet-kelly">Kelly: $${betAmt} <span style="color:#374151;font-weight:400">(${(k*frac*100).toFixed(1)}% of bankroll)</span></div>`:""}
-      ${lagBarHTML}
       ${windowHTML}
-
       <div class="bet-actions">
         ${tier!=="pass"?`<button class="btn-log-bet" data-log='${JSON.stringify({
           matchup,team:teamName,book:s.bl?.book||"",odds:s.bl?.odds||"",
@@ -825,7 +864,6 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
         })}'>+ LOG BET</button>`:""}
         <button class="btn-card-detail" data-gid="${esc(g.id)}">ALL BOOKS ▼</button>
       </div>
-
       <div class="detail-wrap" id="detail-${esc(g.id)}-${s.side}">
         ${buildAllBooksHTML(g)}
       </div>
