@@ -226,7 +226,7 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
         <span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span>
         <div id="header-meta">
           <span id="today-label"></span>
-          <span id="version-label">v35</span>
+          <span id="version-label">v36</span>
           <span id="req-display"></span>
         </div>
       </div>
@@ -1163,7 +1163,7 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
           matchup,team:teamName,book:s.bl?.book||"",odds:s.bl?.odds||"",
           pinfair:s.pinFairSide?+(s.pinFairSide*100).toFixed(1):"",
           tier,score:compositeScore
-        })}' style="${tier==="pass"?"opacity:0.6":""}">+ LOG BET${tier==="pass"?" (PASS)":""}</button>
+        })}' ${tier==="pass"?'style="opacity:0.6"':""}>+ LOG BET${tier==="pass"?" (PASS)":""}</button>
         <button class="btn-card-detail" data-gid="${esc(g.id)}">ALL BOOKS ▼</button>
       </div>
       <div class="detail-wrap" id="detail-${esc(g.id)}-${s.side}">
