@@ -211,7 +211,7 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
         <span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span>
         <div id="header-meta">
           <span id="today-label"></span>
-          <span id="version-label">v28</span>
+          <span id="version-label">v29</span>
           <span id="req-display"></span>
         </div>
       </div>
@@ -809,21 +809,50 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
   const lagSub=lagPctVal===null?"NO STEAM":lagPctVal>=60?"OPEN":lagPctVal>=25?"CLOSING":"CLOSED";
 
   // Signal 3: Retail odds vs Pinnacle fair odds (Option C)
+  // Convert Pinnacle fair probability back to American odds for display
   const pinFairAmerican=fairToAmerican(s.pinFairSide);
   const retailOdds=s.bl?parseFloat(s.bl.odds):null;
-  let oddsGap=null;
-  if(pinFairAmerican!==null&&retailOdds!==null){
-    // Positive gap = retail is more generous than Pinnacle fair (good for bettor)
-    // Both negative (favorites): retail -120, pin fair -130 → gap = -120-(-130) = +10 ✓
-    // Both positive (underdogs): retail +130, pin fair +120 → gap = 130-120 = +10 ✓
-    oddsGap=retailOdds-pinFairAmerican;
-  }
-  const gapCls=oddsGap===null?"sig-none":oddsGap>=10?"sig-green":oddsGap>=5?"sig-yellow":oddsGap>=0?"sig-red":"sig-red";
-  const gapLabel=oddsGap===null?"—":`${oddsGap>0?"+":""}${Math.round(oddsGap)}`;
-  const gapSub=oddsGap===null?"NO DATA":oddsGap>=10?"STRONG LAG":oddsGap>=5?"SOME LAG":oddsGap>=0?"MINIMAL":"RETAIL AHEAD";
-  // Sub-labels showing the actual two numbers
   const retailOddsStr=retailOdds!==null?fmtOdds(retailOdds):"—";
   const pinFairOddsStr=pinFairAmerican!==null?fmtOdds(pinFairAmerican):"—";
+
+  // Gap calculation: raw American odds subtraction only works reliably when
+  // both lines are on the same side of zero. When they straddle +/- (e.g.
+  // retail -102 vs Pinnacle fair +105), the arithmetic is meaningless.
+  // Fix: convert both to implied probability and compute a "probability-equivalent
+  // odds gap" — how many American odds points apart they are at a common baseline.
+  // We express the gap as: retailImplied vs pinFairImplied difference scaled to
+  // American odds points using the derivative at -110 (~52.4% implied) as baseline.
+  // Simpler approach that's accurate: just show the gap in probability points × 10
+  // as a rough odds-equivalent, OR detect the sign-crossing case and show "~N pts"
+  let oddsGap=null;
+  let gapIsApprox=false;
+  if(pinFairAmerican!==null&&retailOdds!==null){
+    const sameSign=(retailOdds>0&&pinFairAmerican>0)||(retailOdds<0&&pinFairAmerican<0);
+    if(sameSign){
+      // Direct subtraction is valid
+      oddsGap=retailOdds-pinFairAmerican;
+    } else {
+      // Lines straddle zero — convert via probability space
+      // Get retail implied (already have s.retailF but need raw retail implied)
+      const retailImp=toImp(retailOdds);
+      const pinFairImp=s.pinFairSide;
+      if(retailImp!==null&&pinFairImp!==null){
+        // Probability difference scaled to approximate American odds points
+        // d(American odds)/d(probability) at prob p ≈ 100/(p²) for favorites, 100/((1-p)²) for underdogs
+        // At near-50% (the cross-zero region), derivative ≈ 100/(0.5²) = 400
+        // Use midpoint probability for scaling
+        const midProb=(retailImp+pinFairImp)/2;
+        const probDiff=retailImp-pinFairImp; // positive = retail more generous
+        // Scale to approximate American odds points (near 50%: ~400 pts per unit)
+        const scale=100/((midProb)*(1-midProb));
+        oddsGap=Math.round(probDiff*scale);
+        gapIsApprox=true;
+      }
+    }
+  }
+  const gapCls=oddsGap===null?"sig-none":oddsGap>=10?"sig-green":oddsGap>=5?"sig-yellow":oddsGap>=0?"sig-red":"sig-red";
+  const gapLabel=oddsGap===null?"—":`${oddsGap>0?"+":""}${Math.round(oddsGap)}${gapIsApprox?"~":""}`;
+  const gapSub=oddsGap===null?"NO DATA":oddsGap>=10?"STRONG LAG":oddsGap>=5?"SOME LAG":oddsGap>=0?"MINIMAL":"RETAIL AHEAD";
 
   // Signal 4: Edge %
   const edgePct=s.edge!==null?s.edge*100:null;
