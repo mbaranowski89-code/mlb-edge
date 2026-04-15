@@ -227,7 +227,7 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
         <span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span>
         <div id="header-meta">
           <span id="today-label"></span>
-          <span id="version-label">v39</span>
+          <span id="version-label">v40</span>
           <span id="req-display"></span>
         </div>
       </div>
@@ -562,10 +562,10 @@ const WORKER_URL   = "https://fangraphs-proxy-worker.mbaranowski89.workers.dev";
 const PIN_KEY      = "pinnacle";
 
 // All books in one call (regions=us,eu gets both retail + Pinnacle)
-const ALL_BOOKS = "fanduel,draftkings,betmgm,caesars,espnbet,bet365,pinnacle";
+const ALL_BOOKS = "fanduel,draftkings,caesars,espnbet,bet365,pinnacle";
 
 const BOOK_LABELS = {
-  fanduel:"FanDuel", draftkings:"DraftKings", betmgm:"BetMGM",
+  fanduel:"FanDuel", draftkings:"DraftKings",
   caesars:"Caesars", espnbet:"ESPN Bet", bet365:"Bet365", pinnacle:"Pinnacle ⚡",
 };
 
@@ -614,7 +614,7 @@ function pinFairProbs(g){
 }
 
 // Tie-break priority when implied odds are equal
-const BOOK_PRIORITY=["fanduel","draftkings","espnbet","betmgm","caesars","bet365"];
+const BOOK_PRIORITY=["fanduel","draftkings","espnbet","caesars","bet365"];
 
 // Best retail line for a side (highest odds = lowest implied, excludes Pinnacle)
 // Tie-break by BOOK_PRIORITY order
@@ -1135,7 +1135,13 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
     <div style="font-size:28px;font-weight:800;color:${scoreColor};line-height:1;">${compositeScore}</div>
   </div>`;
 
-  const scorecard=`<div class="signal-scorecard">
+  const scorecard=`<div>
+    <div class="signal-cell ${beCls}" style="margin-bottom:6px;">
+      <div class="signal-lbl">BET EDGE (vs Pinnacle fair)</div>
+      <div class="signal-val">${beLabel}</div>
+      <div class="signal-sub">${beSub}</div>
+    </div>
+    <div class="signal-scorecard">
     <div class="signal-cell ${steamCls}">
       <div class="signal-lbl">STEAM</div>
       <div class="signal-val">${steamLabel}</div>
@@ -1160,10 +1166,6 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
       <div class="signal-val">${mgLabel}</div>
       <div class="signal-sub">${mgSub}</div>
     </div>
-    <div class="signal-cell ${beCls}" style="grid-column:1/-1;margin-top:2px;">
-      <div class="signal-lbl">BET EDGE (vs Pinnacle fair)</div>
-      <div class="signal-val">${beLabel}</div>
-      <div class="signal-sub">${beSub}</div>
     </div>
   </div>`;
 
@@ -1171,11 +1173,10 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
     fanduel:    "https://sportsbook.fanduel.com/baseball/mlb",
     draftkings: "https://sportsbook.draftkings.com/leagues/baseball/mlb",
     espnbet:    "https://espnbet.com/sport/baseball",
-    betmgm:     "https://sports.betmgm.com/en/sports/baseball-23",
     caesars:    "https://sportsbook.caesars.com/us/oh/bet/baseball",
     bet365:     "https://www.bet365.com/#/AS/B4/",
   };
-  const bookColor=s.bl?.book==="fanduel"?"#a855f7":s.bl?.book==="draftkings"?"#22c55e":s.bl?.book==="espnbet"?"#f97316":s.bl?.book==="betmgm"?"#eab308":"#9ca3af";
+  const bookColor=s.bl?.book==="fanduel"?"#a855f7":s.bl?.book==="draftkings"?"#22c55e":s.bl?.book==="espnbet"?"#f97316":"#9ca3af";
   const bookUrl=s.bl?BOOK_URLS[s.bl.book]||null:null;
   const bestBookHTML=s.bl?`<a href="${bookUrl||"#"}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:space-between;background:#060b14;border:1px solid ${bookColor}44;border-radius:5px;padding:7px 10px;margin-bottom:8px;text-decoration:none;cursor:pointer;">
     <div>
@@ -1188,10 +1189,22 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
     </div>
   </a>`:"";
 
+  // Game time display for card header
+  let gameTimeStr="";
+  const gst=gameStartTimes[g.id];
+  if(gst){
+    const utc=new Date(gst);
+    const etH=(utc.getUTCHours()-4+24)%24;
+    const etM=String(utc.getUTCMinutes()).padStart(2,"0");
+    const ampm=etH>=12?"PM":"AM";
+    const h12=etH%12||12;
+    gameTimeStr=` · ${h12}:${etM} ${ampm} ET`;
+  }
+
   card.innerHTML=`
     <div class="bet-card-header">
       <div>
-        <span class="bet-matchup">${esc(matchup)}</span>
+        <span class="bet-matchup">${esc(matchup)}<span style="color:#374151;font-size:9px;font-weight:400;">${gameTimeStr}</span></span>
         <div style="font-size:12px;font-weight:800;color:#f9fafb;margin-top:2px;">${esc(teamName)} <span style="color:#374151;font-size:10px;font-weight:400">vs ${esc(oppName)}</span></div>
       </div>
       <div class="bet-card-badges">${newBadge}${tierBadge}</div>
