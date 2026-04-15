@@ -94,11 +94,52 @@ button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-
 .tier-empty{padding:12px 14px;font-size:10px;color:var(--text4);letter-spacing:1px;text-align:center;}
 
 /* ── BET CARD ── */
-.bet-card{background:var(--bg3);border-radius:10px;margin-bottom:10px;overflow:hidden;transition:box-shadow 0.2s;}
-.bet-card-t1{border-left:3px solid var(--green);border-top:1px solid var(--green-mid);border-right:1px solid var(--border);border-bottom:1px solid var(--border);box-shadow:0 0 16px #00e5a010,inset 0 1px 0 #00e5a018;}
-.bet-card-t2{border-left:3px solid var(--blue);border-top:1px solid #38bdf833;border-right:1px solid var(--border);border-bottom:1px solid var(--border);box-shadow:0 0 12px #38bdf808,inset 0 1px 0 #38bdf814;}
-.bet-card-pass{border-left:3px solid var(--border2);border-top:1px solid var(--border);border-right:1px solid var(--border);border-bottom:1px solid var(--border);}
-.bet-card-live{border-left:3px solid var(--red);border-top:1px solid #ef444433;border-right:1px solid var(--border);border-bottom:1px solid var(--border);opacity:0.85;}
+.bet-card{background:var(--bg3);border-radius:10px;margin-bottom:10px;overflow:hidden;transition:box-shadow 0.2s;position:relative;}
+
+/* Gradient border glow: brightest top-left, fading right/down */
+.bet-card::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:10px;
+  pointer-events:none;
+  z-index:1;
+}
+.bet-card > *{position:relative;z-index:2;}
+
+.bet-card-t1{
+  border:1px solid transparent;
+  background:
+    linear-gradient(var(--bg3),var(--bg3)) padding-box,
+    linear-gradient(135deg, #00e5a0 0%, #00e5a055 30%, #00e5a022 60%, #1a2840 100%) border-box;
+  box-shadow:
+    0 0 20px #00e5a012,
+    -2px -2px 12px #00e5a018,
+    inset 0 1px 0 #00e5a020;
+}
+.bet-card-t2{
+  border:1px solid transparent;
+  background:
+    linear-gradient(var(--bg3),var(--bg3)) padding-box,
+    linear-gradient(135deg, #38bdf8 0%, #38bdf855 30%, #38bdf822 60%, #1a2840 100%) border-box;
+  box-shadow:
+    0 0 16px #38bdf808,
+    -2px -2px 10px #38bdf814,
+    inset 0 1px 0 #38bdf816;
+}
+.bet-card-pass{
+  border:1px solid transparent;
+  background:
+    linear-gradient(var(--bg3),var(--bg3)) padding-box,
+    linear-gradient(135deg, #3a4a62 0%, #2a3a52 30%, #1a2840 70%, #1a2840 100%) border-box;
+}
+.bet-card-live{
+  border:1px solid transparent;
+  background:
+    linear-gradient(var(--bg3),var(--bg3)) padding-box,
+    linear-gradient(135deg, #f87171 0%, #f8717155 30%, #f8717122 60%, #1a2840 100%) border-box;
+  opacity:0.85;
+}
 .bet-card-nopin{border:1px solid var(--border);opacity:0.6;}
 
 .bet-card-header{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid var(--border);}
@@ -186,6 +227,7 @@ button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-
 .btn-rl{background:#1a0808;color:var(--red);border:1px solid #ef444433;padding:3px 7px;font-size:9px;}
 .btn-rv{background:#1a2236;color:var(--text3);border:1px solid #37415133;padding:3px 7px;font-size:9px;}
 .btn-del{background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:2px 5px;}
+.btn-edit{background:none;border:1px solid var(--border);color:var(--text3);cursor:pointer;font-size:9px;padding:3px 6px;border-radius:4px;}
 .btn-clv{background:#070e1c;color:var(--blue);border:1px solid #38bdf833;padding:3px 7px;font-size:9px;border-radius:4px;cursor:pointer;white-space:nowrap;}
 .btn-clv:disabled{color:var(--text4);border-color:var(--border);cursor:not-allowed;}
 
@@ -236,6 +278,25 @@ button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-
 </head>
 <body>
 
+<!-- EDIT BET DIALOG -->
+<div id="edit-dialog" style="display:none;position:fixed;inset:0;z-index:201;align-items:center;justify-content:center;padding:20px;">
+  <div id="edit-backdrop" style="position:absolute;inset:0;background:#000000dd;"></div>
+  <div style="position:relative;background:#0a1020;border:1px solid #1a2840;border-radius:12px;padding:20px;max-width:400px;width:100%;z-index:202;">
+    <div style="font-size:11px;font-weight:800;color:#e8edf5;letter-spacing:2px;margin-bottom:14px;">EDIT BET</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <div><label style="font-size:9px;color:#4a5a72;letter-spacing:1px;display:block;margin-bottom:3px;">CLOSING LINE</label><input type="number" id="edit-close" placeholder="-155" style="font-size:13px;"/></div>
+      <div><label style="font-size:9px;color:#4a5a72;letter-spacing:1px;display:block;margin-bottom:3px;">STAKE ($)</label><input type="number" id="edit-stake" placeholder="10" style="font-size:13px;"/></div>
+      <div><label style="font-size:9px;color:#4a5a72;letter-spacing:1px;display:block;margin-bottom:3px;">ODDS</label><input type="number" id="edit-odds" placeholder="-140" style="font-size:13px;"/></div>
+      <div><label style="font-size:9px;color:#4a5a72;letter-spacing:1px;display:block;margin-bottom:3px;">PIN FAIR %</label><input type="number" id="edit-pinfair" placeholder="54.2" step="0.1" style="font-size:13px;"/></div>
+    </div>
+    <input type="hidden" id="edit-idx"/>
+    <div style="display:flex;gap:8px;">
+      <button id="edit-save" style="background:#00e5a0;color:#000;flex:1;padding:9px;font-size:10px;">SAVE</button>
+      <button id="edit-cancel" style="background:none;border:1px solid #1a2840;color:#4a5a72;padding:9px 14px;font-size:10px;">CANCEL</button>
+    </div>
+  </div>
+</div>
+
 <!-- ERROR DIALOG -->
 <div id="error-dialog">
   <div id="error-backdrop"></div>
@@ -254,7 +315,7 @@ button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-
         <span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span>
         <div id="header-meta">
           <span id="today-label"></span>
-          <span id="version-label">v43</span>
+          <span id="version-label">v44</span>
           <span id="req-display"></span>
         </div>
       </div>
@@ -550,7 +611,7 @@ Quarter Kelly = Full Kelly × 0.25</div>
   </div>
   <div class="tbl-scroll">
     <table class="data-table">
-      <thead><tr><th>DATE</th><th>MATCHUP</th><th>TEAM</th><th>TIER</th><th>SCORE</th><th>BOOK</th><th>ODDS</th><th>STAKE</th><th>CLV</th><th>CLOSE</th><th>RESULT</th><th>P&L</th><th></th></tr></thead>
+      <thead><tr><th>DATE</th><th>MATCHUP</th><th>TEAM</th><th>TIER</th><th>SCORE</th><th>BOOK</th><th>ODDS</th><th>STAKE</th><th>CLV</th><th>CLOSE</th><th>RESULT</th><th>P&L</th><th></th><th></th></tr></thead>
       <tbody id="log-body"></tbody>
     </table>
   </div>
@@ -1679,6 +1740,7 @@ function renderLog(){
         <button class="btn-rv" data-idx="${ri}" data-res="void" style="opacity:${b.result==="void"?1:0.4}">V</button>
       </div></td>
       <td>${pnlHTML}</td>
+      <td><button class="btn-edit" data-idx="${ri}">✎</button></td>
       <td><button class="btn-del" data-idx="${ri}">✕</button></td>
     `;
     body.appendChild(tr);
@@ -1688,6 +1750,19 @@ function renderLog(){
   });
   body.querySelectorAll(".btn-del").forEach(btn=>{
     btn.addEventListener("click",()=>{betLog.splice(parseInt(btn.dataset.idx),1);saveState(STORAGE_LOG,betLog);renderLog();renderStats();});
+  });
+  body.querySelectorAll(".btn-edit").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const idx=parseInt(btn.dataset.idx);
+      const b=betLog[idx];
+      if(!b) return;
+      document.getElementById("edit-idx").value=idx;
+      document.getElementById("edit-close").value=b.closeOdds||"";
+      document.getElementById("edit-stake").value=b.stake||"";
+      document.getElementById("edit-odds").value=b.odds||"";
+      document.getElementById("edit-pinfair").value=b.pinFair||"";
+      document.getElementById("edit-dialog").style.display="flex";
+    });
   });
   body.querySelectorAll(".btn-clv").forEach(btn=>{
     btn.addEventListener("click",()=>{
@@ -1832,6 +1907,26 @@ document.getElementById("game-date").addEventListener("change",()=>{
 
 document.getElementById("error-close").addEventListener("click",()=>document.getElementById("error-dialog").classList.remove("visible"));
 document.getElementById("error-backdrop").addEventListener("click",()=>document.getElementById("error-dialog").classList.remove("visible"));
+
+function closeEditDialog(){ document.getElementById("edit-dialog").style.display="none"; }
+document.getElementById("edit-cancel").addEventListener("click", closeEditDialog);
+document.getElementById("edit-backdrop").addEventListener("click", closeEditDialog);
+document.getElementById("edit-save").addEventListener("click",()=>{
+  const idx=parseInt(document.getElementById("edit-idx").value);
+  if(isNaN(idx)||!betLog[idx]) return;
+  const b=betLog[idx];
+  const closeVal=document.getElementById("edit-close").value.trim();
+  const stakeVal=document.getElementById("edit-stake").value.trim();
+  const oddsVal=document.getElementById("edit-odds").value.trim();
+  const pinfairVal=document.getElementById("edit-pinfair").value.trim();
+  if(closeVal) b.closeOdds=closeVal;
+  if(stakeVal) b.stake=stakeVal;
+  if(oddsVal) b.odds=oddsVal;
+  if(pinfairVal) b.pinFair=pinfairVal;
+  saveState(STORAGE_LOG,betLog);
+  renderLog(); renderStats();
+  closeEditDialog();
+});
 
 document.getElementById("log-date").value=new Date().toISOString().split("T")[0];
 document.getElementById("btn-log-submit").addEventListener("click",()=>{
