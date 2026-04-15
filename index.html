@@ -72,6 +72,7 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
 .bet-card-t1{border:1px solid #22c55e55;}
 .bet-card-t2{border:1px solid #38bdf844;}
 .bet-card-pass{border:1px solid #1e2d42;}
+.bet-card-live{border:1px solid #ef444433;opacity:0.85;}
 .bet-card-nopin{border:1px solid #1e2d4288;}
 
 .bet-card-header{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #1e2d42;}
@@ -226,7 +227,7 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
         <span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span>
         <div id="header-meta">
           <span id="today-label"></span>
-          <span id="version-label">v38</span>
+          <span id="version-label">v39</span>
           <span id="req-display"></span>
         </div>
       </div>
@@ -484,6 +485,20 @@ Quarter Kelly = Full Kelly × 0.25</div>
     </div>
     <div class="tier-body" id="nopin-body">
       <div class="tier-empty" id="nopin-empty">All games have Pinnacle lines</div>
+    </div>
+  </div>
+
+  <!-- LIVE / IN PROGRESS -->
+  <div class="tier-section">
+    <div class="tier-header" data-tier="live" style="border-color:#ef444433;">
+      <span class="tier-dot" style="background:#ef4444;animation:pulse 1.5s infinite;"></span>
+      <span class="tier-label" style="color:#f87171;">LIVE / IN PROGRESS</span>
+      <span class="tier-count" id="live-count" style="background:#7f1d1d;color:#f87171;">0</span>
+      <span style="font-size:9px;color:#374151;margin-left:4px;">Started 5+ min ago</span>
+      <span class="tier-toggle" id="live-toggle">▼</span>
+    </div>
+    <div class="tier-body open" id="live-body">
+      <div class="tier-empty" id="live-empty">No games in progress</div>
     </div>
   </div>
 
@@ -794,21 +809,34 @@ function renderAnalysis(){
   const date=getDate();
   const frac=parseFloat(document.getElementById("kelly-select").value)||0.5;
   const bank=parseFloat(document.getElementById("bankroll-input").value)||bankroll;
+  const now=Date.now();
+  const LIVE_THRESHOLD=5*60*1000; // 5 minutes after scheduled start
+
+  // Helper: is a game live (started 5+ min ago)?
+  function isLive(g){
+    const st=gameStartTimes[g.id];
+    if(!st) return false;
+    return (now - new Date(st).getTime()) >= LIVE_THRESHOLD;
+  }
 
   // Classify all games
   const classified=games.map(g=>classifyGame(g,openLines,opptyLog));
   saveState(STORAGE_OPPTY,opptyLog);
 
-  // Bucket by tier
-  const t1Sides=[], t2Sides=[], passSides=[], nopinGames=[];
+  // Bucket by tier — split live games out first
+  const t1Sides=[], t2Sides=[], passSides=[], nopinGames=[], liveSides=[];
 
   classified.forEach(({g,fair,hasPinnacle,openFair,sides})=>{
+    const live=isLive(g);
     if(!hasPinnacle){
-      nopinGames.push({g,sides});
+      if(!live) nopinGames.push({g,sides});
+      // live nopin games: skip entirely (no useful data)
       return;
     }
     sides.forEach(s=>{
-      if(s.tier==="t1") t1Sides.push({g,s,fair,openFair});
+      if(live){
+        liveSides.push({g,s,fair,openFair});
+      } else if(s.tier==="t1") t1Sides.push({g,s,fair,openFair});
       else if(s.tier==="t2") t2Sides.push({g,s,fair,openFair});
       else passSides.push({g,s,fair,openFair});
     });
@@ -818,12 +846,21 @@ function renderAnalysis(){
   t1Sides.sort((a,b)=>(b.s.compositeScore||0)-(a.s.compositeScore||0));
   t2Sides.sort((a,b)=>(b.s.compositeScore||0)-(a.s.compositeScore||0));
   passSides.sort((a,b)=>(b.s.compositeScore||0)-(a.s.compositeScore||0));
+  // Live: sort by scheduled start time ascending (earliest first)
+  liveSides.sort((a,b)=>{
+    const ta=gameStartTimes[a.g.id]?new Date(gameStartTimes[a.g.id]).getTime():0;
+    const tb=gameStartTimes[b.g.id]?new Date(gameStartTimes[b.g.id]).getTime():0;
+    return ta-tb;
+  });
 
   // Update counts
   document.getElementById("t1-count").textContent=t1Sides.length;
   document.getElementById("t2-count").textContent=t2Sides.length;
   document.getElementById("pass-count").textContent=passSides.length;
   document.getElementById("nopin-count").textContent=nopinGames.length;
+  // Live count = unique games (2 sides per game)
+  const liveGameIds=new Set(liveSides.map(x=>x.g.id));
+  document.getElementById("live-count").textContent=liveGameIds.size;
 
   // Render Tier 1
   const t1Body=document.getElementById("t1-body");
@@ -890,6 +927,19 @@ function renderAnalysis(){
     });
     nopinBody.appendChild(wrap);
   }
+
+  // Render Live / In Progress
+  const liveBody=document.getElementById("live-body");
+  const liveEmpty=document.getElementById("live-empty");
+  Array.from(liveBody.children).forEach(c=>{if(c!==liveEmpty)c.remove();});
+  if(!liveSides.length){
+    liveEmpty.style.display="block";
+  } else {
+    liveEmpty.style.display="none";
+    liveSides.forEach(({g,s,fair,openFair})=>{
+      liveBody.appendChild(buildBetCard(g,s,fair,openFair,frac,bank,"live"));
+    });
+  }
 }
 
 function buildBetCard(g, s, fair, openFair, frac, bank, tier){
@@ -946,16 +996,30 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
   // Edge badge
   // (edge badge removed - BET EDGE cell in scorecard replaces it)
 
-  // Tier badge
-  const tierBadge=tier==="t1"?
-    `<span class="badge badge-t1">🔥 TAKE</span>`:
+  // Tier badge — live games show LIVE only, no pre-game tier
+  const tierBadge=tier==="live"?
+    `<span class="badge" style="background:#7f1d1d;color:#f87171;border:1px solid #ef444444;">🔴 LIVE</span>`:
+    tier==="t1"?`<span class="badge badge-t1">🔥 TAKE</span>`:
     tier==="t2"?`<span class="badge badge-t2">👀 WATCH</span>`:
     `<span class="badge badge-pass">— PASS</span>`;
 
-  // New badge
-  const newBadge=s.isNew?`<span class="badge badge-new">NEW</span>`:"";
+  // New badge — suppress on live cards
+  const newBadge=s.isNew&&tier!=="live"?`<span class="badge badge-new">NEW</span>`:"";
 
-  // Movement detail - show for any game with opening lines, regardless of steam direction
+  // Live game start info
+  let liveTimeHTML="";
+  if(tier==="live"){
+    const st=gameStartTimes[g.id];
+    if(st){
+      const startMs=new Date(st).getTime();
+      const elapsed=Math.floor((Date.now()-startMs)/60000);
+      const etH=(new Date(st).getUTCHours()-4+24)%24;
+      const etM=String(new Date(st).getUTCMinutes()).padStart(2,"0");
+      const ampm=etH>=12?"PM":"AM";
+      const h12=etH%12||12;
+      liveTimeHTML=`<div style="font-size:9px;color:#f87171;letter-spacing:1px;margin-bottom:6px;">STARTED ${h12}:${etM} ${ampm} ET &nbsp;·&nbsp; ~${elapsed} MIN AGO</div>`;
+    }
+  }
   let moveDetail="";
   if(openFair&&s.steamShift!==null){
     const openFairSide=s.side==="away"?openFair.f1:openFair.f2;
@@ -1133,6 +1197,7 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
       <div class="bet-card-badges">${newBadge}${tierBadge}</div>
     </div>
     <div class="bet-main">
+      ${liveTimeHTML}
       ${scoreHTML}
       ${scorecard}
       ${bestBookHTML}
