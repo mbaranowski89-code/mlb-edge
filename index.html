@@ -211,7 +211,7 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
         <span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span>
         <div id="header-meta">
           <span id="today-label"></span>
-          <span id="version-label">v29</span>
+          <span id="version-label">v31</span>
           <span id="req-display"></span>
         </div>
       </div>
@@ -219,6 +219,11 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
         <span id="fetch-status"></span>
         <button id="btn-fetch">⚡ FETCH</button>
         <button id="btn-set-open" class="btn-ghost">📌 SET OPEN</button>
+        <div id="reset-open-confirm" style="display:none;align-items:center;gap:5px;">
+          <span style="font-size:9px;color:#f59e0b;">OVERWRITE ALL?</span>
+          <button id="btn-roy">YES</button>
+          <button id="btn-ron" class="btn-ghost">NO</button>
+        </div>
         <button id="btn-clear" class="btn-ghost">✕</button>
         <div id="clear-confirm">
           <span>SURE?</span>
@@ -360,7 +365,6 @@ const STORAGE_LOG     = "mlb-v21-log";
 const STORAGE_BANK    = "mlb-v21-bank";
 const STORAGE_OPEN    = "mlb-v21-open";
 const STORAGE_OPPTY   = "mlb-v21-oppty"; // opportunity first-seen timestamps
-const STORAGE_REQLOG  = "mlb-v21-reqs";  // request usage tracking
 
 const ODDS_API_KEY = "803403e631dec7840e8157415bb61979";
 const WORKER_URL   = "https://fangraphs-proxy-worker.mbaranowski89.workers.dev";
@@ -573,31 +577,26 @@ function classifyGame(g, openLines, opptyLog){
 // ═══════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════
-let games=[], betLog=[], openLines={}, opptyLog={}, reqLog={};
+let games=[], betLog=[], openLines={}, opptyLog={};
 let bankroll=parseFloat(localStorage.getItem(STORAGE_BANK)||"1000")||1000;
 
 function loadState(key,def){ try{const r=localStorage.getItem(key);return r?JSON.parse(r):def;}catch{return def;} }
 function saveState(key,val){ try{localStorage.setItem(key,JSON.stringify(val));}catch{} }
 
-// Request tracking
-function logRequest(){
-  const today=new Date().toISOString().split("T")[0];
-  if(!reqLog[today]) reqLog[today]=0;
-  reqLog[today]++;
-  saveState(STORAGE_REQLOG,reqLog);
-  updateReqDisplay();
-}
-function updateReqDisplay(){
-  const today=new Date().toISOString().split("T")[0];
-  const todayCount=reqLog[today]||0;
-  const monthTotal=Object.entries(reqLog)
-    .filter(([d])=>d.startsWith(today.slice(0,7)))
-    .reduce((s,[,v])=>s+v,0);
-  const remaining=420-monthTotal;
+// Request display — driven by API headers
+let apiRemaining=null;
+let todayFetchCount=0;
+
+function logRequest(){ todayFetchCount++; }
+
+function updateReqDisplay(remaining){
   const el=document.getElementById("req-display");
-  const color=remaining<42?"#f87171":remaining<84?"#f59e0b":"#374151";
+  if(remaining!==undefined) apiRemaining=remaining;
+  const rem=apiRemaining;
+  if(rem===null){ el.textContent=""; return; }
+  const color=rem<42?"#f87171":rem<84?"#f59e0b":"#374151";
   el.style.color=color;
-  el.textContent=`${todayCount} today · ${remaining} left`;
+  el.textContent=`${todayFetchCount} today · ${rem} left`;
 }
 
 // ═══════════════════════════════════════════════════
@@ -1008,21 +1007,16 @@ async function fetchOdds(){
     const oddsUrl=`https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?apiKey=${ODDS_API_KEY}&regions=us,eu&markets=h2h&oddsFormat=american&bookmakers=${ALL_BOOKS}&commenceTimeFrom=${df}&commenceTimeTo=${dt}`;
     const espnUrl=`${WORKER_URL}/espn?date=${date}`;
 
-    logRequest(); // count this as 1 request (combined)
+    logRequest(); // increment today's session counter
 
     const [oddsRes,espnRes]=await Promise.all([
       fetch(oddsUrl),
       fetch(espnUrl).catch(()=>null)
     ]);
 
+    // Use API's authoritative remaining count
     const rem=oddsRes.headers.get("x-requests-remaining");
-    if(rem){
-      // Update our tracking with actual API count
-      const today=date;
-      reqLog[today]=reqLog[today]||0; // already logged above
-      saveState(STORAGE_REQLOG,reqLog);
-      updateReqDisplay();
-    }
+    if(rem!==null) updateReqDisplay(parseInt(rem,10));
 
     if(!oddsRes.ok){
       const t=await oddsRes.text();
@@ -1108,9 +1102,32 @@ async function fetchOdds(){
   btn.disabled=false; btn.textContent="⚡ FETCH";
 }
 
-// Manual "set as open" — stamps current Pinnacle lines as opening for all games
+// SET OPEN — only fills games that don't already have an opening line
 function setAsOpenLines(){
-  const date=getDate();
+  let filled=0, skipped=0;
+  for(const g of games){
+    if(!g.awayOdds[PIN_KEY]||!g.homeOdds[PIN_KEY]) continue;
+    if(openLines[g.id]){ skipped++; continue; } // already set — don't overwrite
+    openLines[g.id]={
+      awayPin:g.awayOdds[PIN_KEY], homePin:g.homeOdds[PIN_KEY],
+      awayTeam:g.awayTeam, homeTeam:g.homeTeam,
+      ts:Date.now(), manual:true,
+    };
+    filled++;
+  }
+  saveState(STORAGE_OPEN,openLines);
+  render();
+  if(skipped>0&&filled===0){
+    setStatus(`📌 All ${skipped} opening lines already set — use RESET to overwrite`,null);
+  } else if(skipped>0){
+    setStatus(`📌 ${filled} new · ${skipped} already set (not overwritten)`,true);
+  } else {
+    setStatus(`📌 Opening lines set for ${filled} games`,true);
+  }
+}
+
+// RESET OPEN — overwrites all existing opening lines (use with caution)
+function resetOpenLines(){
   let count=0;
   for(const g of games){
     if(!g.awayOdds[PIN_KEY]||!g.homeOdds[PIN_KEY]) continue;
@@ -1123,7 +1140,7 @@ function setAsOpenLines(){
   }
   saveState(STORAGE_OPEN,openLines);
   render();
-  setStatus(`📌 Opening lines set for ${count} games`,true);
+  setStatus(`🔄 Opening lines reset for ${count} games`,true);
 }
 
 function setStatus(msg,ok){
@@ -1267,7 +1284,34 @@ document.querySelectorAll(".nav-tab").forEach(t=>t.addEventListener("click",()=>
 });
 
 document.getElementById("btn-fetch").addEventListener("click",fetchOdds);
+
+// SET OPEN — tap = fill missing only, long-press = show reset confirm
 document.getElementById("btn-set-open").addEventListener("click",setAsOpenLines);
+document.getElementById("btn-set-open").addEventListener("contextmenu",(e)=>{
+  e.preventDefault();
+  document.getElementById("reset-open-confirm").style.display="flex";
+  document.getElementById("btn-set-open").style.display="none";
+});
+// Also support long-press on mobile (touchstart + delay)
+let resetPressTimer=null;
+document.getElementById("btn-set-open").addEventListener("touchstart",()=>{
+  resetPressTimer=setTimeout(()=>{
+    document.getElementById("reset-open-confirm").style.display="flex";
+    document.getElementById("btn-set-open").style.display="none";
+  },600);
+});
+document.getElementById("btn-set-open").addEventListener("touchend",()=>clearTimeout(resetPressTimer));
+document.getElementById("btn-set-open").addEventListener("touchmove",()=>clearTimeout(resetPressTimer));
+
+document.getElementById("btn-roy").addEventListener("click",()=>{
+  document.getElementById("reset-open-confirm").style.display="none";
+  document.getElementById("btn-set-open").style.display="inline-block";
+  resetOpenLines();
+});
+document.getElementById("btn-ron").addEventListener("click",()=>{
+  document.getElementById("reset-open-confirm").style.display="none";
+  document.getElementById("btn-set-open").style.display="inline-block";
+});
 
 document.getElementById("btn-clear").addEventListener("click",()=>{
   document.getElementById("btn-clear").style.display="none";
@@ -1331,15 +1375,12 @@ games    = loadState(STORAGE_GAMES,[]);
 betLog   = loadState(STORAGE_LOG,[]);
 openLines= loadState(STORAGE_OPEN,{});
 opptyLog = loadState(STORAGE_OPPTY,{});
-reqLog   = loadState(STORAGE_REQLOG,{});
 bankroll = parseFloat(localStorage.getItem(STORAGE_BANK)||"1000")||1000;
 
 document.getElementById("game-date").value=new Date().toISOString().split("T")[0];
 document.getElementById("bankroll-input").value=bankroll;
 document.getElementById("today-label").textContent=
   new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"}).toUpperCase();
-
-updateReqDisplay();
 render();
 </script>
 </body>
