@@ -158,6 +158,8 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
 .btn-rl{background:#7f1d1d;color:#f87171;border:1px solid #ef444444;padding:3px 7px;font-size:9px;}
 .btn-rv{background:#1f2937;color:#6b7280;border:1px solid #37415144;padding:3px 7px;font-size:9px;}
 .btn-del{background:none;border:none;color:#374151;cursor:pointer;font-size:12px;padding:2px 5px;}
+.btn-clv{background:#0c1a2a;color:#38bdf8;border:1px solid #38bdf844;padding:3px 7px;font-size:9px;border-radius:4px;cursor:pointer;white-space:nowrap;}
+.btn-clv:disabled{color:#2d3f55;border-color:#1e2d42;cursor:not-allowed;}
 
 /* ── STATS PAGE ── */
 .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px;}
@@ -224,7 +226,7 @@ button{font-family:'Courier New',monospace;cursor:pointer;border:none;border-rad
         <span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span>
         <div id="header-meta">
           <span id="today-label"></span>
-          <span id="version-label">v32</span>
+          <span id="version-label">v34</span>
           <span id="req-display"></span>
         </div>
       </div>
@@ -500,12 +502,13 @@ Quarter Kelly = Full Kelly × 0.25</div>
       <div class="form-field"><label>STAKE ($)</label><input type="number" id="log-stake" placeholder="50"/></div>
       <div class="form-field"><label>PIN FAIR % (at bet)</label><input type="number" id="log-pinfair" placeholder="54.2" step="0.1"/></div>
       <div class="form-field"><label>CLOSING LINE (opt.)</label><input type="number" id="log-close" placeholder="-155"/></div>
+      <div class="form-field"><label>GAME TIME ET (opt.)</label><input type="time" id="log-gametime" placeholder="07:05"/></div>
     </div>
     <button class="btn-log-submit" id="btn-log-submit">+ LOG BET</button>
   </div>
   <div class="tbl-scroll">
     <table class="data-table">
-      <thead><tr><th>DATE</th><th>MATCHUP</th><th>TEAM</th><th>BOOK</th><th>ODDS</th><th>STAKE</th><th>CLV</th><th>RESULT</th><th>P&L</th><th></th></tr></thead>
+      <thead><tr><th>DATE</th><th>MATCHUP</th><th>TEAM</th><th>BOOK</th><th>ODDS</th><th>STAKE</th><th>CLV</th><th>CLOSE</th><th>RESULT</th><th>P&L</th><th></th></tr></thead>
       <tbody id="log-body"></tbody>
     </table>
   </div>
@@ -536,7 +539,8 @@ const STORAGE_GAMES   = "mlb-v21-games";
 const STORAGE_LOG     = "mlb-v21-log";
 const STORAGE_BANK    = "mlb-v21-bank";
 const STORAGE_OPEN    = "mlb-v21-open";
-const STORAGE_OPPTY   = "mlb-v21-oppty"; // opportunity first-seen timestamps
+const STORAGE_OPPTY   = "mlb-v21-oppty";
+const STORAGE_TIMES   = "mlb-v21-times"; // opportunity first-seen timestamps
 
 const ODDS_API_KEY = "803403e631dec7840e8157415bb61979";
 const WORKER_URL   = "https://fangraphs-proxy-worker.mbaranowski89.workers.dev";
@@ -748,6 +752,7 @@ function classifyGame(g, openLines, opptyLog){
 // STATE
 // ═══════════════════════════════════════════════════
 let games=[], betLog=[], openLines={}, opptyLog={};
+let gameStartTimes={}; // stableId → ISO string UTC game time
 let bankroll=parseFloat(localStorage.getItem(STORAGE_BANK)||"1000")||1000;
 
 function loadState(key,def){ try{const r=localStorage.getItem(key);return r?JSON.parse(r):def;}catch{return def;} }
@@ -1129,6 +1134,23 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
       document.getElementById("log-pinfair").value=d.pinfair||"";
       document.getElementById("log-stake").value="";
       document.getElementById("log-close").value="";
+      // Auto-populate game time if we have it
+      const parts=(d.matchup||"").split("@").map(s=>s.trim());
+      const logDate=new Date().toISOString().split("T")[0];
+      if(parts.length===2){
+        const key=`${parts[0]}-${parts[1]}-${logDate}`;
+        const gt=gameStartTimes[key];
+        if(gt){
+          // Convert UTC to ET for display (UTC-4)
+          const utc=new Date(gt);
+          const etH=(utc.getUTCHours()-4+24)%24;
+          const etM=utc.getUTCMinutes();
+          document.getElementById("log-gametime").value=
+            `${String(etH).padStart(2,"0")}:${String(etM).padStart(2,"0")}`;
+        } else {
+          document.getElementById("log-gametime").value="";
+        }
+      }
       switchTab("log");
     });
   }
@@ -1187,12 +1209,14 @@ async function fetchOdds(){
     const dt=encodeURIComponent(toISO);
     const oddsUrl=`https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?apiKey=${ODDS_API_KEY}&regions=us,eu&markets=h2h&oddsFormat=american&bookmakers=${ALL_BOOKS}&commenceTimeFrom=${df}&commenceTimeTo=${dt}`;
     const espnUrl=`${WORKER_URL}/espn?date=${date}`;
+    const mlbSchedUrl=`https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=${date}&hydrate=team`;
 
     logRequest(); // increment today's session counter
 
-    const [oddsRes,espnRes]=await Promise.all([
+    const [oddsRes,espnRes,schedRes]=await Promise.all([
       fetch(oddsUrl),
-      fetch(espnUrl).catch(()=>null)
+      fetch(espnUrl).catch(()=>null),
+      fetch(mlbSchedUrl).catch(()=>null), // free, no API key needed
     ]);
 
     // Use API's authoritative remaining count
@@ -1217,6 +1241,24 @@ async function fetchOdds(){
         for(const g of(ed.games||[])){
           if(g.awayWinPct!==null&&g.homeWinPct!==null){
             espnLookup[`${normEspn(g.awayTeam)}|${normEspn(g.homeTeam)}`]={away:g.awayWinPct,home:g.homeWinPct};
+          }
+        }
+      }catch{}
+    }
+
+    // Parse MLB schedule start times (abbr→abbr→UTC ISO)
+    const schedLookup={}; // "AWAY-HOME" → UTC ISO string
+    if(schedRes?.ok){
+      try{
+        const sd=await schedRes.json();
+        for(const dateObj of(sd.dates||[])){
+          for(const game of(dateObj.games||[])){
+            const aAbbr=tAbbr(game.teams?.away?.team?.name||"");
+            const hAbbr=tAbbr(game.teams?.home?.team?.name||"");
+            const startTime=game.gameDate;
+            if(aAbbr&&hAbbr&&startTime){
+              schedLookup[`${aAbbr}-${hAbbr}`]=startTime;
+            }
           }
         }
       }catch{}
@@ -1249,6 +1291,10 @@ async function fetchOdds(){
       const espnK=`${awayAbbr}|${homeAbbr}`;
       const espn=espnLookup[espnK]||null;
 
+      // Store game start time from MLB schedule
+      const startTime=schedLookup[`${awayAbbr}-${homeAbbr}`]||null;
+      if(startTime) gameStartTimes[stableId]=startTime;
+
       // Set opening line if Pinnacle available and not yet recorded
       if(!newOpenLines[stableId]&&awayOdds[PIN_KEY]&&homeOdds[PIN_KEY]){
         newOpenLines[stableId]={
@@ -1268,6 +1314,7 @@ async function fetchOdds(){
 
     openLines=newOpenLines;
     saveState(STORAGE_OPEN,openLines);
+    saveState(STORAGE_TIMES,gameStartTimes);
     render();
 
     const pinCount=games.filter(g=>g.awayOdds[PIN_KEY]).length;
@@ -1338,6 +1385,76 @@ function showError(title,detail){
 }
 
 // ═══════════════════════════════════════════════════
+// CLOSING LINE FETCH
+// ═══════════════════════════════════════════════════
+async function fetchClosingLine(betIdx, btn){
+  const b=betLog[betIdx];
+  if(!b) return;
+
+  btn.disabled=true; btn.textContent="...";
+
+  try{
+    // Parse teams from matchup string "NYY @ BOS" or "NYY@BOS"
+    const parts=(b.matchup||"").split("@").map(s=>s.trim());
+    if(parts.length<2){ showError("CLV Fetch","Could not parse matchup: "+b.matchup); btn.disabled=false; btn.textContent="GET CLV"; return; }
+
+    // Use bet date for the fetch
+    const date=b.date||new Date().toISOString().split("T")[0];
+    const [y,mo,d]=date.split("-").map(Number);
+    const fromISO=`${date}T04:00:00Z`;
+    const nextDay=new Date(Date.UTC(y,mo-1,d+1));
+    const toISO=`${nextDay.toISOString().split("T")[0]}T04:00:00Z`;
+
+    const df=encodeURIComponent(fromISO);
+    const dt=encodeURIComponent(toISO);
+    const url=`https://api.the-odds-api.com/v4/sports/baseball_mlb/odds/?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h&oddsFormat=american&bookmakers=pinnacle&commenceTimeFrom=${df}&commenceTimeTo=${dt}`;
+
+    logRequest();
+    const res=await fetch(url);
+    const rem=res.headers.get("x-requests-remaining");
+    if(rem!==null) updateReqDisplay(parseInt(rem,10));
+
+    if(!res.ok){ showError("CLV Fetch","API error "+res.status); btn.disabled=false; btn.textContent="GET CLV"; return; }
+
+    const data=await res.json();
+    if(!Array.isArray(data)||!data.length){ btn.textContent="NO LINE"; btn.disabled=false; return; }
+
+    // Find the matching game and team
+    const teamBet=(b.team||"").toUpperCase().trim();
+    let closingOdds=null;
+
+    for(const ev of data){
+      const awayAbbr=tAbbr(ev.away_team).toUpperCase();
+      const homeAbbr=tAbbr(ev.home_team).toUpperCase();
+      if(awayAbbr!==teamBet&&homeAbbr!==teamBet) continue;
+      const isBettingAway=awayAbbr===teamBet;
+
+      for(const bm of(ev.bookmakers||[])){
+        if(bm.key!==PIN_KEY) continue;
+        const h2h=(bm.markets||[]).find(m=>m.key==="h2h");
+        if(!h2h) continue;
+        const teamName=isBettingAway?ev.away_team:ev.home_team;
+        const outcome=(h2h.outcomes||[]).find(o=>o.name===teamName);
+        if(outcome) closingOdds=Math.round(outcome.price);
+      }
+      if(closingOdds!==null) break;
+    }
+
+    if(closingOdds===null){ btn.textContent="NO LINE"; btn.disabled=false; return; }
+
+    // Save closing odds to bet log
+    betLog[betIdx].closeOdds=String(closingOdds);
+    saveState(STORAGE_LOG,betLog);
+    renderLog();
+    renderStats();
+
+  }catch(err){
+    showError("CLV Fetch Failed",err.message);
+    btn.disabled=false; btn.textContent="GET CLV";
+  }
+}
+
+// ═══════════════════════════════════════════════════
 // BET LOG
 // ═══════════════════════════════════════════════════
 function renderLog(){
@@ -1366,6 +1483,39 @@ function renderLog(){
     } else if(b.result==="void"){
       pnlHTML=`<span style="color:#6b7280;">$0</span>`;
     }
+    // CLV fetch button with game time countdown
+    let closeDisplay;
+    if(b.closeOdds){
+      closeDisplay=`<span style="color:#9ca3af;font-size:10px;">${fmtOdds(b.closeOdds)}</span>`;
+    } else {
+      let btnLabel="GET CLV";
+      let btnStyle="";
+      let btnTitle="";
+      if(b.gameTime){
+        const now=Date.now();
+        const start=new Date(b.gameTime).getTime();
+        const minsToGame=Math.round((start-now)/60000);
+        if(minsToGame>30){
+          btnLabel=`${minsToGame}m to pitch`;
+          btnStyle="color:#374151;border-color:#1e2d42;cursor:default;";
+          btnTitle="Fetch closer to game time for best accuracy";
+        } else if(minsToGame>0){
+          btnLabel=`⚡ GET CLV (${minsToGame}m)`;
+          btnStyle="color:#fbbf24;border-color:#f59e0b44;animation:pulse 1.5s infinite;";
+          btnTitle="Optimal window — fetch now";
+        } else if(minsToGame>-30){
+          btnLabel="GET CLV NOW";
+          btnStyle="color:#4ade80;border-color:#22c55e44;";
+          btnTitle="Game in progress — fetch immediately";
+        } else {
+          btnLabel="LIKELY GONE";
+          btnStyle="color:#374151;";
+          btnTitle="Line may have been taken down";
+        }
+      }
+      closeDisplay=`<button class="btn-clv" data-idx="${ri}" style="${btnStyle}" title="${btnTitle}">${btnLabel}</button>`;
+    }
+
     const tr=document.createElement("tr");
     tr.innerHTML=`
       <td style="color:#6b7280;font-size:10px;">${b.date||""}</td>
@@ -1375,6 +1525,7 @@ function renderLog(){
       <td>${b.odds?fmtOdds(b.odds):"—"}</td>
       <td>$${b.stake||"—"}</td>
       <td>${clvHTML}</td>
+      <td>${closeDisplay}</td>
       <td><div style="display:flex;gap:3px;">
         <button class="btn-rw" data-idx="${ri}" data-res="win" style="opacity:${b.result==="win"?1:0.4}">W</button>
         <button class="btn-rl" data-idx="${ri}" data-res="loss" style="opacity:${b.result==="loss"?1:0.4}">L</button>
@@ -1390,6 +1541,14 @@ function renderLog(){
   });
   body.querySelectorAll(".btn-del").forEach(btn=>{
     btn.addEventListener("click",()=>{betLog.splice(parseInt(btn.dataset.idx),1);saveState(STORAGE_LOG,betLog);renderLog();renderStats();});
+  });
+  body.querySelectorAll(".btn-clv").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      // Skip if button is in a non-actionable state (too early or likely gone)
+      const label=btn.textContent||"";
+      if(label.includes("m to pitch")||label.includes("LIKELY GONE")) return;
+      fetchClosingLine(parseInt(btn.dataset.idx),btn);
+    });
   });
 }
 
@@ -1542,11 +1701,30 @@ document.getElementById("btn-log-submit").addEventListener("click",()=>{
     result:null,
   };
   if(!b.team||!b.odds){showError("Missing Fields","Team and odds are required.");return;}
+
+  // Try to find game start time from stored schedule data
+  const manualTime=document.getElementById("log-gametime").value;
+  if(manualTime&&b.date){
+    // Manual override: convert HH:MM ET to UTC ISO
+    // ET = UTC-4 (EDT)
+    const [hh,mm]=manualTime.split(":").map(Number);
+    const utcHour=hh+4; // convert ET to UTC
+    const d=new Date(`${b.date}T${String(utcHour).padStart(2,"0")}:${String(mm).padStart(2,"0")}:00Z`);
+    b.gameTime=d.toISOString();
+  } else {
+    // Auto-lookup from schedule data
+    const parts=(b.matchup||"").split("@").map(s=>s.trim());
+    if(parts.length===2){
+      const key=`${parts[0]}-${parts[1]}-${b.date}`;
+      if(gameStartTimes[key]) b.gameTime=gameStartTimes[key];
+    }
+  }
   betLog.push(b);
   saveState(STORAGE_LOG,betLog);
   renderLog();renderStats();
   document.getElementById("log-stake").value="";
   document.getElementById("log-close").value="";
+  document.getElementById("log-gametime").value="";
 });
 
 // ═══════════════════════════════════════════════════
@@ -1556,6 +1734,7 @@ games    = loadState(STORAGE_GAMES,[]);
 betLog   = loadState(STORAGE_LOG,[]);
 openLines= loadState(STORAGE_OPEN,{});
 opptyLog = loadState(STORAGE_OPPTY,{});
+gameStartTimes = loadState(STORAGE_TIMES,{});
 bankroll = parseFloat(localStorage.getItem(STORAGE_BANK)||"1000")||1000;
 
 document.getElementById("game-date").value=new Date().toISOString().split("T")[0];
