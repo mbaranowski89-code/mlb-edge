@@ -380,7 +380,7 @@ button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-
         <span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span>
         <div id="header-meta">
           <span id="today-label"></span>
-          <span id="version-label">v45</span>
+          <span id="version-label">v47</span>
           <span id="req-display"></span>
         </div>
       </div>
@@ -715,7 +715,8 @@ Quarter Kelly = Full Kelly × 0.25</div>
 // ---------------------------------------------------
 // CONSTANTS
 // ---------------------------------------------------
-const STORAGE_GAMES   = "mlb-v21-games";
+const STORAGE_GAMES   = "mlb-v21-games";      // legacy - unused after v46
+const STORAGE_GAMES_BY_DATE = "mlb-v21-games-bydate"; // date-scoped games store
 const STORAGE_LOG     = "mlb-v21-log";
 const STORAGE_BANK    = "mlb-v21-bank";
 const STORAGE_OPEN    = "mlb-v21-open";
@@ -951,13 +952,26 @@ const LOGO_URL=(abbr)=>{
   return`https://a.espncdn.com/i/teamlogos/mlb/500/${k}.png`;
 };
 
+// Scores page always uses ET wall-clock date, rolling over at 2 AM ET (6 AM UTC)
+function getScoresDate(){
+  const now=new Date();
+  const utcH=now.getUTCHours();
+  // Before 6:00 UTC (= 2:00 AM ET), still show yesterday's games
+  if(utcH<6){
+    const prev=new Date(now);
+    prev.setUTCDate(prev.getUTCDate()-1);
+    return prev.toISOString().split("T")[0];
+  }
+  return now.toISOString().split("T")[0];
+}
+
 // ---------------------------------------------------
 // SCORES
 // ---------------------------------------------------
 let scoresData=[]; // cached live game data
 
 async function fetchScores(){
-  const date=getDate();
+  const date=getScoresDate();
   document.getElementById("scores-loading").style.display="block";
   document.getElementById("scores-empty").style.display="none";
   document.getElementById("scores-body").innerHTML="";
@@ -985,12 +999,13 @@ function renderScores(){
     return;
   }
   document.getElementById("scores-empty").style.display="none";
-  const date=getDate();
+  const scoresDate=getScoresDate(); // ET date with 2am rollover
 
-  // Build logged bet lookup by matchup
+  // Build logged bet lookup — only bets from the scores date
   const betsByMatchup={};
   betLog.forEach(b=>{
-    if(!b.matchup) return;
+    if(!b.matchup||!b.date) return;
+    if(b.date!==scoresDate) return; // only show bets from same day
     const key=b.matchup.replace(/\s/g,"").toUpperCase();
     if(!betsByMatchup[key]) betsByMatchup[key]=[];
     betsByMatchup[key].push(b);
@@ -1148,10 +1163,12 @@ function buildScoreBody(g,bets,awayAbbr,homeAbbr,awayScore,homeScore,awayLeads,h
     }
   }
 
-  // Pre-game Pinnacle odds from stored data
+  // Pre-game Pinnacle odds from date-scoped stored data
   let oddsHTML="";
-  const stableId=`${awayAbbr}-${homeAbbr}-${getDate()}`;
-  const pinGame=games.find(pg=>pg.id===stableId);
+  const scoresDate=getScoresDate();
+  const stableId=`${awayAbbr}-${homeAbbr}-${scoresDate}`;
+  const scoresGames=gamesByDate[scoresDate]||[];
+  const pinGame=scoresGames.find(pg=>pg.id===stableId);
   const openEntry=openLines[stableId];
   if(pinGame&&pinGame.awayOdds&&pinGame.awayOdds.pinnacle){
     const pinA=fmtOdds(pinGame.awayOdds.pinnacle);
@@ -1193,7 +1210,11 @@ function buildScoreBody(g,bets,awayAbbr,homeAbbr,awayScore,homeScore,awayLeads,h
   return`<div class="score-body">${teamRows}${lineScoreHTML}${betHTML}${oddsHTML}</div>`;
 }
 
-let games=[], betLog=[], openLines={}, opptyLog={};
+let gamesByDate={}, betLog=[], openLines={}, opptyLog={};
+// Convenience: games for currently selected date (set by getGames())
+let games=[];
+function getGames(date){ return gamesByDate[date]||[]; }
+function setGames(date,data){ gamesByDate[date]=data; saveState(STORAGE_GAMES_BY_DATE,gamesByDate); }
 let gameStartTimes={}; // stableId - ISO string UTC game time
 let bankroll=parseFloat(localStorage.getItem(STORAGE_BANK)||"1000")||1000;
 
@@ -1220,7 +1241,8 @@ function updateReqDisplay(remaining){
 // RENDER - ANALYSIS
 // ---------------------------------------------------
 function render(){
-  saveState(STORAGE_GAMES,games);
+  const date=getDate();
+  setGames(date, games); // save to date-scoped store
   saveState(STORAGE_OPPTY,opptyLog);
   renderAnalysis();
 }
@@ -1230,7 +1252,9 @@ function renderAnalysis(){
   const frac=parseFloat(document.getElementById("kelly-select").value)||0.5;
   const bank=parseFloat(document.getElementById("bankroll-input").value)||bankroll;
   const now=Date.now();
-  const LIVE_THRESHOLD=5*60*1000; // 5 minutes after scheduled start
+  const LIVE_THRESHOLD=5*60*1000;
+  // Load games for selected date from date-scoped store
+  games=getGames(date);
 
   // Helper: is a game live (started 5+ min ago)?
   function isLive(g){
@@ -2213,8 +2237,15 @@ document.getElementById("btn-clear").addEventListener("click",()=>{
   document.getElementById("clear-confirm").style.display="flex";
 });
 document.getElementById("btn-cy").addEventListener("click",()=>{
-  games=[]; openLines={}; opptyLog={};
-  saveState(STORAGE_GAMES,games); saveState(STORAGE_OPEN,openLines); saveState(STORAGE_OPPTY,opptyLog);
+  const clearDate=getDate();
+  games=[]; gamesByDate[clearDate]=[];
+  // Only remove open lines for the selected date (preserve other dates)
+  Object.keys(openLines).forEach(k=>{ if(k.endsWith(clearDate)) delete openLines[k]; });
+  // Clear oppty log entries for this date
+  Object.keys(opptyLog).forEach(k=>{ if(k.endsWith(clearDate)) delete opptyLog[k]; });
+  saveState(STORAGE_GAMES_BY_DATE,gamesByDate);
+  saveState(STORAGE_OPEN,openLines);
+  saveState(STORAGE_OPPTY,opptyLog);
   document.getElementById("fetch-status").style.display="none";
   document.getElementById("clear-confirm").style.display="none";
   document.getElementById("btn-clear").style.display="inline-block";
@@ -2312,7 +2343,28 @@ document.getElementById("btn-log-submit").addEventListener("click",()=>{
 // ---------------------------------------------------
 // BOOT
 // ---------------------------------------------------
-games    = loadState(STORAGE_GAMES,[]);
+gamesByDate = loadState(STORAGE_GAMES_BY_DATE,{});
+// Migrate legacy single-day games if present
+const _legacy = loadState(STORAGE_GAMES,[]);
+if(_legacy.length && Object.keys(gamesByDate).length===0){
+  const _today = new Date().toISOString().split("T")[0];
+  gamesByDate[_today] = _legacy;
+  saveState(STORAGE_GAMES_BY_DATE, gamesByDate);
+}
+
+// Auto-purge gamesByDate entries older than 30 days
+(function purgeOldDates(){
+  const cutoff=new Date();
+  cutoff.setUTCDate(cutoff.getUTCDate()-30);
+  const cutoffStr=cutoff.toISOString().split("T")[0];
+  let purged=0;
+  Object.keys(gamesByDate).forEach(d=>{
+    if(d<cutoffStr){ delete gamesByDate[d]; purged++; }
+  });
+  if(purged>0) saveState(STORAGE_GAMES_BY_DATE,gamesByDate);
+})();
+
+games = getGames(new Date().toISOString().split("T")[0]);
 betLog   = loadState(STORAGE_LOG,[]);
 openLines= loadState(STORAGE_OPEN,{});
 opptyLog = loadState(STORAGE_OPPTY,{});
