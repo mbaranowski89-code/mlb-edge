@@ -318,6 +318,14 @@ button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-
 .score-bet-result-loss{color:var(--red);font-weight:800;}
 .score-bet-result-pending{color:var(--amber);font-weight:800;}
 
+/* ── EXPORT BANNER ── */
+#export-banner{display:none;background:#1a1008;border-bottom:1px solid #fbbf2433;padding:7px 14px;position:sticky;top:var(--nav-bottom,97px);z-index:18;}
+#export-banner-inner{max-width:700px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;}
+#export-banner-msg{font-size:9px;color:var(--amber);letter-spacing:0.5px;}
+#export-banner-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+#btn-banner-export{background:#78350f;color:var(--amber);border:1px solid #fbbf2433;font-size:9px;padding:4px 10px;}
+#btn-banner-dismiss{background:none;border:none;color:var(--text4);font-size:14px;padding:0 4px;cursor:pointer;}
+
 /* ── GLOSSARY ── */
 .glossary-section{background:#0a1220;border:1px solid #1e2d42;border-radius:10px;margin-bottom:12px;overflow:hidden;}
 .glossary-section-title{font-size:9px;font-weight:800;letter-spacing:2px;color:#374151;padding:10px 14px;border-bottom:1px solid #1e2d42;background:#080e1a;}
@@ -380,7 +388,7 @@ button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-
         <span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span>
         <div id="header-meta">
           <span id="today-label"></span>
-          <span id="version-label">v47</span>
+          <span id="version-label">v2.0</span>
           <span id="req-display"></span>
         </div>
       </div>
@@ -399,6 +407,8 @@ button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-
           <button id="btn-cy">YES</button>
           <button id="btn-cn">NO</button>
         </div>
+        <button id="btn-export" class="btn-ghost" title="Export backup">⬇</button>
+        <label id="btn-import" class="btn-ghost" title="Import backup" style="cursor:pointer;display:inline-flex;align-items:center;padding:7px 12px;font-size:10px;font-weight:800;letter-spacing:1px;border-radius:5px;">⬆<input type="file" id="import-file-input" accept=".json" style="display:none;"/></label>
       </div>
     </div>
   </div>
@@ -411,6 +421,17 @@ button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-
   <button class="nav-tab" data-tab="log">BET LOG</button>
   <button class="nav-tab" data-tab="stats">STATS</button>
   <button class="nav-tab" data-tab="glossary">GLOSSARY</button>
+</div>
+
+<!-- EXPORT REMINDER BANNER -->
+<div id="export-banner">
+  <div id="export-banner-inner">
+    <span id="export-banner-msg">⚠ Backup overdue — data at risk</span>
+    <div id="export-banner-actions">
+      <button id="btn-banner-export">EXPORT NOW</button>
+      <button id="btn-banner-dismiss">✕</button>
+    </div>
+  </div>
 </div>
 
 <!-- SCORES PAGE -->
@@ -721,7 +742,8 @@ const STORAGE_LOG     = "mlb-v21-log";
 const STORAGE_BANK    = "mlb-v21-bank";
 const STORAGE_OPEN    = "mlb-v21-open";
 const STORAGE_OPPTY   = "mlb-v21-oppty";
-const STORAGE_TIMES   = "mlb-v21-times"; // opportunity first-seen timestamps
+const STORAGE_TIMES   = "mlb-v21-times";
+const STORAGE_LAST_EXPORT = "mlb-last-export";
 
 const ODDS_API_KEY = "803403e631dec7840e8157415bb61979";
 const WORKER_URL   = "https://fangraphs-proxy-worker.mbaranowski89.workers.dev";
@@ -2341,6 +2363,99 @@ document.getElementById("btn-log-submit").addEventListener("click",()=>{
 });
 
 // ---------------------------------------------------
+// EXPORT / IMPORT
+// ---------------------------------------------------
+function exportData(){
+  const payload={
+    version:"2.0",
+    exportedAt:new Date().toISOString(),
+    gamesByDate,
+    betLog,
+    openLines,
+    opptyLog,
+    gameStartTimes,
+    bankroll,
+  };
+  const json=JSON.stringify(payload,null,2);
+  const blob=new Blob([json],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  const date=new Date().toISOString().split("T")[0];
+  a.href=url; a.download=`mlb-edge-backup-${date}.json`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  // Record export time
+  localStorage.setItem(STORAGE_LAST_EXPORT, new Date().toISOString());
+  hideBanner();
+  setStatus("✓ Backup exported",true);
+}
+
+function importData(file){
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=(e)=>{
+    try{
+      const payload=JSON.parse(e.target.result);
+      if(!payload.betLog||!Array.isArray(payload.betLog)) throw new Error("Invalid backup file");
+      // Restore all data
+      if(payload.gamesByDate) { gamesByDate=payload.gamesByDate; saveState(STORAGE_GAMES_BY_DATE,gamesByDate); }
+      if(payload.betLog)      { betLog=payload.betLog; saveState(STORAGE_LOG,betLog); }
+      if(payload.openLines)   { openLines=payload.openLines; saveState(STORAGE_OPEN,openLines); }
+      if(payload.opptyLog)    { opptyLog=payload.opptyLog; saveState(STORAGE_OPPTY,opptyLog); }
+      if(payload.gameStartTimes){ gameStartTimes=payload.gameStartTimes; saveState(STORAGE_TIMES,gameStartTimes); }
+      if(payload.bankroll){
+        bankroll=parseFloat(payload.bankroll)||bankroll;
+        localStorage.setItem(STORAGE_BANK,bankroll);
+        document.getElementById("bankroll-input").value=bankroll;
+      }
+      // Update games for current date
+      games=getGames(getDate());
+      // Mark export time as now since we just loaded fresh data
+      localStorage.setItem(STORAGE_LAST_EXPORT, new Date().toISOString());
+      hideBanner();
+      render(); renderLog(); renderStats();
+      setStatus(`✓ Backup imported — ${betLog.length} bets restored`,true);
+    }catch(err){
+      showError("Import Failed", "Could not read backup file.\n\n"+err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+// Export reminder banner
+function checkExportReminder(){
+  const last=localStorage.getItem(STORAGE_LAST_EXPORT);
+  if(!last){
+    // Never exported — show banner
+    showBanner("Never backed up — export to protect your data");
+    return;
+  }
+  const hrs=(Date.now()-new Date(last).getTime())/3600000;
+  if(hrs>24){
+    const d=hrs<48?`${Math.round(hrs)}h ago`:
+             hrs<168?`${Math.floor(hrs/24)}d ago`:
+             `${Math.floor(hrs/168)}w ago`;
+    showBanner(`Last backup ${d} — export to protect your data`);
+  }
+}
+
+function showBanner(msg){
+  document.getElementById("export-banner-msg").textContent="⚠ "+msg;
+  document.getElementById("export-banner").style.display="block";
+  // Update nav offset so pages don't get hidden behind banner
+  requestAnimationFrame(()=>{
+    const navBottom=document.getElementById("nav").getBoundingClientRect().bottom+
+                    document.getElementById("export-banner").offsetHeight;
+    document.documentElement.style.setProperty("--nav-bottom",navBottom+"px");
+  });
+}
+
+function hideBanner(){
+  document.getElementById("export-banner").style.display="none";
+}
+
+// ---------------------------------------------------
 // BOOT
 // ---------------------------------------------------
 gamesByDate = loadState(STORAGE_GAMES_BY_DATE,{});
@@ -2384,6 +2499,18 @@ function updateHeaderHeight(){
 updateHeaderHeight();
 window.addEventListener("resize", updateHeaderHeight);
 document.getElementById("btn-refresh-scores").addEventListener("click",fetchScores);
+
+// Export / Import
+document.getElementById("btn-export").addEventListener("click", exportData);
+document.getElementById("btn-banner-export").addEventListener("click", exportData);
+document.getElementById("btn-banner-dismiss").addEventListener("click", hideBanner);
+document.getElementById("import-file-input").addEventListener("change",(e)=>{
+  importData(e.target.files[0]);
+  e.target.value=""; // reset so same file can be re-imported
+});
+
+// Check export reminder on load
+checkExportReminder();
 
 render();
 </script>
