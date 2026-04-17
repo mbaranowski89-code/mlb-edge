@@ -2739,7 +2739,7 @@ document.getElementById("edit-save").addEventListener("click",()=>{
 
 document.getElementById("log-date").value=new Date().toISOString().split("T")[0];
 document.getElementById("btn-log-submit").addEventListener("click",()=>{
-  console.log("[LOG BET] Submit clicked");
+  alert("[1] Submit clicked — team:"+document.getElementById("log-team").value+" odds:"+document.getElementById("log-odds").value);
   const b={
     id:Date.now(),
     date:document.getElementById("log-date").value,
@@ -2757,7 +2757,7 @@ document.getElementById("btn-log-submit").addEventListener("click",()=>{
     result:null,
   };
   if(!b.team||!b.odds){showError("Missing Fields","Team and odds are required.");return;}
-  console.log("[LOG BET] Validation passed, bet:", b);
+  alert("[2] Validation passed");
 
   // Pick up tier/score stored by LOG BET button
   const gtEl=document.getElementById("log-gametime");
@@ -2784,18 +2784,17 @@ document.getElementById("btn-log-submit").addEventListener("click",()=>{
     }
   }
   betLog.push(b);
-  console.log("[LOG BET] Pushed to betLog, total:", betLog.length);
+  alert("[3] Pushed to betLog, total: "+betLog.length);
   saveState(STORAGE_LOG,betLog);
-  console.log("[LOG BET] Saved to storage");
+  alert("[4] Saved to storage");
   try {
     renderLog();
-    console.log("[LOG BET] renderLog done");
+    alert("[5] renderLog done");
   } catch(e) {
-    console.error("[LOG BET] renderLog error:", e);
-    alert("renderLog error: " + e.message);
+    alert("[5] renderLog ERROR: " + e.message);
   }
-  try { renderStats(); } catch(e) { console.error("[LOG BET] renderStats error:", e); }
-  try { renderActionBar(); } catch(e) { console.error("[LOG BET] renderActionBar error:", e); }
+  try { renderStats(); } catch(e) { alert("[6] renderStats ERROR: "+e.message); }
+  try { renderActionBar(); } catch(e) { alert("[7] renderActionBar ERROR: "+e.message); }
   collapseLogForm();
   document.getElementById("log-stake").value="5";
   document.getElementById("log-close").value="";
