@@ -261,6 +261,18 @@ button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-
 .nopin-books{color:var(--text2);font-size:10px;}
 .nopin-badge{font-size:9px;color:var(--text4);letter-spacing:1px;}
 
+/* ── DUAL RANGE SLIDERS ── */
+.slider-row{margin-bottom:12px;}
+.slider-row-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
+.slider-row-label{font-size:8px;color:var(--text3);letter-spacing:1px;}
+.slider-row-values{font-size:9px;color:var(--green);font-weight:700;letter-spacing:0.5px;}
+.slider-track-wrap{position:relative;height:20px;display:flex;align-items:center;}
+.slider-track{position:absolute;left:0;right:0;height:3px;background:var(--border);border-radius:2px;}
+.slider-range{position:absolute;height:3px;background:var(--green);border-radius:2px;}
+.slider-thumb{position:absolute;width:18px;height:18px;background:var(--bg3);border:2px solid var(--green);border-radius:50%;cursor:pointer;transform:translateX(-50%);top:50%;margin-top:-9px;touch-action:none;transition:border-color 0.15s;box-shadow:0 0 6px #00e5a030;z-index:2;}
+.slider-thumb:active{border-color:#fff;box-shadow:0 0 10px #00e5a060;}
+.slider-thumb.inactive{border-color:var(--border);box-shadow:none;}
+
 /* ── LOG PAGE ── */
 #log-form{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px;}
 .log-title{font-size:9px;color:var(--text3);letter-spacing:2px;margin-bottom:10px;}
@@ -437,7 +449,7 @@ button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-
         <span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span>
         <div id="header-meta">
           <span id="today-label"></span>
-          <span id="version-label">v2.6</span>
+          <span id="version-label">v2.7</span>
           <span id="req-display"></span>
           <span id="last-fetch-display"></span>
         </div>
@@ -798,16 +810,19 @@ Quarter Kelly = Full Kelly × 0.25</div>
       </div>
     </div>
     <div class="log-filter-section">
-      <div class="log-filter-lbl">RANGES (leave blank for no limit)</div>
-      <div class="filter-ranges">
-        <div class="filter-range-row"><span class="filter-range-lbl">SCORE</span><input type="number" id="fr-score-min" placeholder="min"/><span style="color:var(--text4);font-size:9px;">–</span><input type="number" id="fr-score-max" placeholder="max"/></div>
-        <div class="filter-range-row"><span class="filter-range-lbl">EDGE %</span><input type="number" id="fr-edge-min" placeholder="min" step="0.1"/><span style="color:var(--text4);font-size:9px;">–</span><input type="number" id="fr-edge-max" placeholder="max" step="0.1"/></div>
-        <div class="filter-range-row"><span class="filter-range-lbl">STEAM %</span><input type="number" id="fr-steam-min" placeholder="min" step="0.1"/><span style="color:var(--text4);font-size:9px;">–</span><input type="number" id="fr-steam-max" placeholder="max" step="0.1"/></div>
-        <div class="filter-range-row"><span class="filter-range-lbl">LAG %</span><input type="number" id="fr-lag-min" placeholder="min"/><span style="color:var(--text4);font-size:9px;">–</span><input type="number" id="fr-lag-max" placeholder="max"/></div>
-        <div class="filter-range-row"><span class="filter-range-lbl">MODEL %</span><input type="number" id="fr-model-min" placeholder="min" step="0.1"/><span style="color:var(--text4);font-size:9px;">–</span><input type="number" id="fr-model-max" placeholder="max" step="0.1"/></div>
-        <div class="filter-range-row"><span class="filter-range-lbl">ODDS</span><input type="number" id="fr-odds-min" placeholder="min"/><span style="color:var(--text4);font-size:9px;">–</span><input type="number" id="fr-odds-max" placeholder="max"/></div>
-        <div class="filter-range-row"><span class="filter-range-lbl">STAKE $</span><input type="number" id="fr-stake-min" placeholder="min"/><span style="color:var(--text4);font-size:9px;">–</span><input type="number" id="fr-stake-max" placeholder="max"/></div>
-        <div class="filter-range-row"><span class="filter-range-lbl">DATE</span><input type="date" id="fr-date-from" style="font-size:9px;padding:4px 5px;"/><span style="color:var(--text4);font-size:9px;">–</span><input type="date" id="fr-date-to" style="font-size:9px;padding:4px 5px;"/></div>
+      <div class="log-filter-lbl">RANGES</div>
+      <div id="slider-container">
+        <div class="slider-row" data-field="score" data-label="SCORE" data-dec="0"></div>
+        <div class="slider-row" data-field="edge" data-label="EDGE %" data-dec="1"></div>
+        <div class="slider-row" data-field="steam" data-label="STEAM %" data-dec="1"></div>
+        <div class="slider-row" data-field="lag" data-label="LAG %" data-dec="0"></div>
+        <div class="slider-row" data-field="model" data-label="MODEL %" data-dec="1"></div>
+        <div class="slider-row" data-field="odds" data-label="ODDS" data-dec="0"></div>
+        <div class="slider-row" data-field="stake" data-label="STAKE $" data-dec="0"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <div style="flex:1;"><div class="log-filter-lbl" style="margin-bottom:3px;">DATE FROM</div><input type="date" id="fr-date-from" style="font-size:13px;padding:5px 7px;"/></div>
+        <div style="flex:1;"><div class="log-filter-lbl" style="margin-bottom:3px;">DATE TO</div><input type="date" id="fr-date-to" style="font-size:13px;padding:5px 7px;"/></div>
       </div>
     </div>
     <button id="btn-filter-clear" style="background:none;border:1px solid var(--border);color:var(--text3);font-size:9px;padding:4px 10px;margin-top:4px;">CLEAR FILTERS</button>
@@ -2181,6 +2196,12 @@ async function fetchClosingLine(betIdx, btn){
 let logFilters={tiers:new Set(),results:new Set()};
 let logSort="date-desc";
 
+// Slider state — stores {min, max, dataMin, dataMax} per field
+// null min/max means no filter active (handles at outer edges)
+const SLIDER_FIELDS=["score","edge","steam","lag","model","odds","stake"];
+let sliderState={}; // field -> {min, max, dataMin, dataMax}
+SLIDER_FIELDS.forEach(f=>{ sliderState[f]={min:null,max:null,dataMin:0,dataMax:100}; });
+
 function applyLogFilters(log){
   return log.filter(b=>{
     if(logFilters.tiers.size>0){
@@ -2191,14 +2212,12 @@ function applyLogFilters(log){
       const r=b.result||"pending";
       if(!logFilters.results.has(r)) return false;
     }
-    const rng=(id,val)=>{
-      const minEl=document.getElementById("fr-"+id+"-min");
-      const maxEl=document.getElementById("fr-"+id+"-max");
-      if(!minEl||!maxEl||val===null||val===undefined||val==="") return true;
-      const min=minEl.value!==""?parseFloat(minEl.value):null;
-      const max=maxEl.value!==""?parseFloat(maxEl.value):null;
-      if(min!==null&&val<min) return false;
-      if(max!==null&&val>max) return false;
+    // Slider range filters
+    const rng=(field,val)=>{
+      const st=sliderState[field];
+      if(!st||val===null||val===undefined||val==="") return true;
+      if(st.min!==null&&val<st.min) return false;
+      if(st.max!==null&&val>st.max) return false;
       return true;
     };
     if(!rng("score",b.score!==null&&b.score!==undefined?b.score:null)) return false;
@@ -2240,11 +2259,9 @@ function sortLog(log){
 
 function countActiveFilters(){
   let n=logFilters.tiers.size+logFilters.results.size;
-  ["score","edge","steam","lag","model","odds","stake"].forEach(id=>{
-    const mn=document.getElementById("fr-"+id+"-min");
-    const mx=document.getElementById("fr-"+id+"-max");
-    if(mn&&mn.value!=="") n++;
-    if(mx&&mx.value!=="") n++;
+  SLIDER_FIELDS.forEach(f=>{
+    const st=sliderState[f];
+    if(st&&(st.min!==null||st.max!==null)) n++;
   });
   const fd=document.getElementById("fr-date-from");
   const td=document.getElementById("fr-date-to");
@@ -2253,8 +2270,127 @@ function countActiveFilters(){
   return n;
 }
 
+// ---------------------------------------------------
+// SLIDERS
+// ---------------------------------------------------
+function getFieldValues(log, field){
+  const vals=[];
+  log.forEach(b=>{
+    let v=null;
+    if(field==="score") v=b.score!==null&&b.score!==undefined?b.score:null;
+    else if(field==="edge") v=b.betEdge!==undefined&&b.betEdge!==""?parseFloat(b.betEdge):null;
+    else if(field==="steam") v=b.steam!==undefined&&b.steam!==""?parseFloat(b.steam):null;
+    else if(field==="lag") v=b.lag!==undefined&&b.lag!==""?parseFloat(b.lag):null;
+    else if(field==="model") v=b.modelGap!==undefined&&b.modelGap!==""?parseFloat(b.modelGap):null;
+    else if(field==="odds") v=b.odds!==undefined&&b.odds!==""?parseFloat(b.odds):null;
+    else if(field==="stake") v=b.stake!==undefined&&b.stake!==""?parseFloat(b.stake):null;
+    if(v!==null&&!isNaN(v)) vals.push(v);
+  });
+  return vals;
+}
+
+function buildSliders(){
+  const container=document.getElementById("slider-container");
+  if(!container) return;
+  container.querySelectorAll(".slider-row").forEach(row=>{
+    const field=row.dataset.field;
+    const label=row.dataset.label;
+    const dec=parseInt(row.dataset.dec)||0;
+    const vals=getFieldValues(betLog,field);
+    if(!vals.length){ row.style.display="none"; return; }
+    row.style.display="block";
+    let dMin=Math.min(...vals), dMax=Math.max(...vals);
+    // Add small buffer if min===max
+    if(dMin===dMax){ dMin=dMin-1; dMax=dMax+1; }
+    // Round to dec places
+    dMin=parseFloat(dMin.toFixed(dec));
+    dMax=parseFloat(dMax.toFixed(dec));
+    // Update state with new data bounds, reset min/max to null (outer edges) if first time
+    const prev=sliderState[field];
+    sliderState[field]={
+      min: prev.min,
+      max: prev.max,
+      dataMin: dMin,
+      dataMax: dMax,
+    };
+    renderSliderRow(row, field, label, dec);
+  });
+}
+
+function renderSliderRow(row, field, label, dec){
+  const st=sliderState[field];
+  const {dataMin:dMin, dataMax:dMax}=st;
+  const curMin=st.min!==null?st.min:dMin;
+  const curMax=st.max!==null?st.max:dMax;
+  const pct=(v)=>((v-dMin)/(dMax-dMin))*100;
+  const minPct=pct(curMin), maxPct=pct(curMax);
+  const isActive=st.min!==null||st.max!==null;
+  const valColor=isActive?"var(--green)":"var(--text3)";
+  const minStr=curMin.toFixed(dec);
+  const maxStr=curMax.toFixed(dec);
+
+  row.innerHTML=`
+    <div class="slider-row-header">
+      <span class="slider-row-label">${label}</span>
+      <span class="slider-row-values" style="color:${valColor};">${minStr} – ${maxStr}</span>
+    </div>
+    <div class="slider-track-wrap" data-field="${field}" data-dec="${dec}">
+      <div class="slider-track"></div>
+      <div class="slider-range" style="left:${minPct}%;right:${100-maxPct}%;"></div>
+      <div class="slider-thumb${!isActive?" inactive":""}" data-handle="min" style="left:${minPct}%;"></div>
+      <div class="slider-thumb${!isActive?" inactive":""}" data-handle="max" style="left:${maxPct}%;"></div>
+    </div>
+  `;
+
+  // Wire drag events for both thumbs
+  row.querySelectorAll(".slider-thumb").forEach(thumb=>{
+    const onMove=(clientX)=>{
+      const wrap=thumb.closest(".slider-track-wrap");
+      const rect=wrap.getBoundingClientRect();
+      const rawPct=Math.max(0,Math.min(100,(clientX-rect.left)/rect.width*100));
+      const rawVal=dMin+(dMax-dMin)*rawPct/100;
+      const val=parseFloat(rawVal.toFixed(dec));
+      const handle=thumb.dataset.handle;
+      const other=handle==="min"?sliderState[field].max??dMax:sliderState[field].min??dMin;
+      if(handle==="min"){
+        sliderState[field].min=Math.min(val,other-Math.pow(10,-dec));
+        if(sliderState[field].min<=dMin+Math.pow(10,-dec)*0.5) sliderState[field].min=null;
+      } else {
+        sliderState[field].max=Math.max(val,other+Math.pow(10,-dec));
+        if(sliderState[field].max>=dMax-Math.pow(10,-dec)*0.5) sliderState[field].max=null;
+      }
+      renderSliderRow(row,field,label,dec);
+      renderLog();
+    };
+    // Mouse
+    thumb.addEventListener("mousedown",(e)=>{
+      e.preventDefault();
+      const move=(ev)=>onMove(ev.clientX);
+      const up=()=>{document.removeEventListener("mousemove",move);document.removeEventListener("mouseup",up);};
+      document.addEventListener("mousemove",move);
+      document.addEventListener("mouseup",up);
+    });
+    // Touch
+    thumb.addEventListener("touchstart",(e)=>{
+      e.preventDefault();
+      const move=(ev)=>onMove(ev.touches[0].clientX);
+      const up=()=>{document.removeEventListener("touchmove",move);document.removeEventListener("touchend",up);};
+      document.addEventListener("touchmove",move,{passive:false});
+      document.addEventListener("touchend",up);
+    },{passive:false});
+  });
+}
+
+function resetSliders(){
+  SLIDER_FIELDS.forEach(f=>{
+    sliderState[f].min=null;
+    sliderState[f].max=null;
+  });
+  buildSliders();
+}
+
 function renderLog(){
-  const wrap=document.getElementById("log-body-wrap");
+  buildSliders(); // update slider ranges from current bet log
   const empty=document.getElementById("log-empty");
   const summary=document.getElementById("log-summary");
   if(!wrap) return;
@@ -2365,7 +2501,22 @@ function renderLog(){
     btn.addEventListener("click",()=>{betLog[parseInt(btn.dataset.idx)].result=btn.dataset.res;saveState(STORAGE_LOG,betLog);renderLog();renderStats();});
   });
   wrap.querySelectorAll(".btn-del").forEach(btn=>{
-    btn.addEventListener("click",()=>{betLog.splice(parseInt(btn.dataset.idx),1);saveState(STORAGE_LOG,betLog);renderLog();renderStats();});
+    btn.addEventListener("click",()=>{
+      const idx=parseInt(btn.dataset.idx);
+      const conf=document.createElement("span");
+      conf.style.cssText="display:inline-flex;align-items:center;gap:3px;";
+      conf.innerHTML=`<span style="font-size:9px;color:var(--red);">SURE?</span>`+
+        `<button class="btn-rl" style="padding:2px 6px;font-size:9px;">YES</button>`+
+        `<button class="btn-rv" style="padding:2px 6px;font-size:9px;">NO</button>`;
+      btn.replaceWith(conf);
+      conf.querySelectorAll("button")[0].addEventListener("click",()=>{
+        betLog.splice(idx,1);
+        saveState(STORAGE_LOG,betLog);renderLog();renderStats();
+      });
+      conf.querySelectorAll("button")[1].addEventListener("click",()=>{
+        renderLog(); // re-render to restore button
+      });
+    });
   });
   wrap.querySelectorAll(".btn-edit").forEach(btn=>{
     btn.addEventListener("click",()=>{
@@ -2935,16 +3086,16 @@ document.querySelectorAll(".log-filter-panel input").forEach(inp=>{
 document.getElementById("btn-filter-clear").addEventListener("click",()=>{
   logFilters={tiers:new Set(),results:new Set()};
   document.querySelectorAll(".filter-chip").forEach(c=>c.classList.remove("active"));
-  ["score","edge","steam","lag","model","odds","stake"].forEach(id=>{
-    const mn=document.getElementById("fr-"+id+"-min");
-    const mx=document.getElementById("fr-"+id+"-max");
-    if(mn) mn.value=""; if(mx) mx.value="";
-  });
+  resetSliders();
   const fd=document.getElementById("fr-date-from");
   const td=document.getElementById("fr-date-to");
   if(fd) fd.value=""; if(td) td.value="";
   renderLog();
 });
+
+// Date range inputs
+document.getElementById("fr-date-from").addEventListener("change",()=>renderLog());
+document.getElementById("fr-date-to").addEventListener("change",()=>renderLog());
 
 // Export / Import
 document.getElementById("btn-banner-export").addEventListener("click", exportData);
