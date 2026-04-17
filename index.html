@@ -449,7 +449,7 @@ button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-
         <span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span>
         <div id="header-meta">
           <span id="today-label"></span>
-          <span id="version-label">v3.5d</span>
+          <span id="version-label">v3.5</span>
           <span id="req-display"></span>
           <span id="last-fetch-display"></span>
         </div>
@@ -2739,7 +2739,6 @@ document.getElementById("edit-save").addEventListener("click",()=>{
 
 document.getElementById("log-date").value=new Date().toISOString().split("T")[0];
 document.getElementById("btn-log-submit").addEventListener("click",()=>{
-  alert("[1] Submit clicked — team:"+document.getElementById("log-team").value+" odds:"+document.getElementById("log-odds").value);
   const b={
     id:Date.now(),
     date:document.getElementById("log-date").value,
@@ -2757,7 +2756,6 @@ document.getElementById("btn-log-submit").addEventListener("click",()=>{
     result:null,
   };
   if(!b.team||!b.odds){showError("Missing Fields","Team and odds are required.");return;}
-  alert("[2] Validation passed");
 
   // Pick up tier/score stored by LOG BET button
   const gtEl=document.getElementById("log-gametime");
@@ -2770,10 +2768,15 @@ document.getElementById("btn-log-submit").addEventListener("click",()=>{
   const manualTime=document.getElementById("log-gametime").value;
   if(manualTime&&b.date){
     // Manual override: convert HH:MM ET to UTC ISO
-    // ET = UTC-4 (EDT)
+    // ET = UTC-4 (EDT) — clamp with modulo to handle midnight crossover
     const [hh,mm]=manualTime.split(":").map(Number);
-    const utcHour=hh+4; // convert ET to UTC
-    const d=new Date(`${b.date}T${String(utcHour).padStart(2,"0")}:${String(mm).padStart(2,"0")}:00Z`);
+    const utcHour=(hh+4)%24;
+    const utcDate=new Date(b.date);
+    // If hour wrapped past midnight, advance date by 1
+    const dayOffset=(hh+4)>=24?1:0;
+    utcDate.setUTCDate(utcDate.getUTCDate()+dayOffset);
+    const dateStr=utcDate.toISOString().split("T")[0];
+    const d=new Date(`${dateStr}T${String(utcHour).padStart(2,"0")}:${String(mm).padStart(2,"0")}:00Z`);
     b.gameTime=d.toISOString();
   } else {
     // Auto-lookup from schedule data
@@ -2784,17 +2787,8 @@ document.getElementById("btn-log-submit").addEventListener("click",()=>{
     }
   }
   betLog.push(b);
-  alert("[3] Pushed to betLog, total: "+betLog.length);
   saveState(STORAGE_LOG,betLog);
-  alert("[4] Saved to storage");
-  try {
-    renderLog();
-    alert("[5] renderLog done");
-  } catch(e) {
-    alert("[5] renderLog ERROR: " + e.message);
-  }
-  try { renderStats(); } catch(e) { alert("[6] renderStats ERROR: "+e.message); }
-  try { renderActionBar(); } catch(e) { alert("[7] renderActionBar ERROR: "+e.message); }
+  renderLog();renderStats();renderActionBar();
   collapseLogForm();
   document.getElementById("log-stake").value="5";
   document.getElementById("log-close").value="";
