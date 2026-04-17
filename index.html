@@ -449,7 +449,7 @@ button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-
         <span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span>
         <div id="header-meta">
           <span id="today-label"></span>
-          <span id="version-label">v2.7</span>
+          <span id="version-label">v2.9</span>
           <span id="req-display"></span>
           <span id="last-fetch-display"></span>
         </div>
@@ -766,7 +766,7 @@ Quarter Kelly = Full Kelly × 0.25</div>
         <div class="form-field"><label>TEAM BET</label><input type="text" id="log-team" placeholder="NYY"/></div>
         <div class="form-field"><label>BOOK</label><input type="text" id="log-book" placeholder="FanDuel"/></div>
         <div class="form-field"><label>ODDS</label><input type="number" id="log-odds" placeholder="-140"/></div>
-        <div class="form-field"><label>STAKE ($)</label><input type="number" id="log-stake" placeholder="50"/></div>
+        <div class="form-field"><label>STAKE ($)</label><input type="number" id="log-stake" placeholder="5"/></div>
         <div class="form-field"><label>PIN FAIR % (at bet)</label><input type="number" id="log-pinfair" placeholder="54.2" step="0.1"/></div>
         <div class="form-field"><label>CLOSING LINE (opt.)</label><input type="number" id="log-close" placeholder="-155"/></div>
         <div class="form-field"><label>GAME TIME ET (opt.)</label><input type="time" id="log-gametime" placeholder="07:05"/></div>
@@ -887,11 +887,11 @@ const WORKER_URL   = "https://fangraphs-proxy-worker.mbaranowski89.workers.dev";
 const PIN_KEY      = "pinnacle";
 
 // All books in one call (regions=us,eu gets both retail + Pinnacle)
-const ALL_BOOKS = "fanduel,draftkings,caesars,espnbet,bet365,pinnacle";
+const ALL_BOOKS = "fanduel,draftkings,caesars,bet365,pinnacle";
 
 const BOOK_LABELS = {
   fanduel:"FanDuel", draftkings:"DraftKings",
-  caesars:"Caesars", espnbet:"ESPN Bet", bet365:"Bet365", pinnacle:"Pinnacle ⚡",
+  caesars:"Caesars", bet365:"Bet365", pinnacle:"Pinnacle ⚡",
 };
 
 const ESPN_ABBR = {"ATH":"OAK","CHW":"CWS","WSH":"WAS","KCR":"KC","TBR":"TB","SDP":"SD","SFG":"SF"};
@@ -939,7 +939,7 @@ function pinFairProbs(g){
 }
 
 // Tie-break priority when implied odds are equal
-const BOOK_PRIORITY=["fanduel","draftkings","espnbet","caesars","bet365"];
+const BOOK_PRIORITY=["fanduel","draftkings","caesars","bet365"];
 
 // Best retail line for a side (highest odds = lowest implied, excludes Pinnacle)
 // Tie-break by BOOK_PRIORITY order
@@ -1779,11 +1779,10 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
   const BOOK_URLS={
     fanduel:    "https://sportsbook.fanduel.com/baseball/mlb",
     draftkings: "https://sportsbook.draftkings.com/leagues/baseball/mlb",
-    espnbet:    "https://sportsbook.thescore.bet/sport/baseball/organization/united-states/competition/mlb#lines",
     caesars:    "https://sportsbook.caesars.com/us/oh/bet/baseball",
     bet365:     "https://www.bet365.com/#/AS/B4/",
   };
-  const bookColor=s.bl?.book==="fanduel"?"#c084fc":s.bl?.book==="draftkings"?"#00e5a0":s.bl?.book==="espnbet"?"#fb923c":"#8a9bb8";
+  const bookColor=s.bl?.book==="fanduel"?"#c084fc":s.bl?.book==="draftkings"?"#00e5a0":"#8a9bb8";
   const bookUrl=s.bl?BOOK_URLS[s.bl.book]||null:null;
   const bestBookHTML=s.bl?`<a href="${bookUrl||"#"}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:space-between;background:#060b14;border:1px solid ${bookColor}44;border-radius:5px;padding:7px 10px;margin-bottom:8px;text-decoration:none;cursor:pointer;">
     <div>
@@ -1854,7 +1853,7 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
       document.getElementById("log-book").value=BOOK_LABELS[d.book]||d.book||"";
       document.getElementById("log-odds").value=d.odds||"";
       document.getElementById("log-pinfair").value=d.pinfair||"";
-      document.getElementById("log-stake").value="";
+      document.getElementById("log-stake").value="5";
       document.getElementById("log-close").value="";
       // Auto-populate signal values
       document.getElementById("log-betedge").value=d.betEdge!==undefined?d.betEdge:"";
@@ -1900,7 +1899,7 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
 }
 
 function buildAllBooksHTML(g){
-  const books=["fanduel","draftkings","betmgm","caesars","espnbet","bet365",PIN_KEY];
+  const books=["fanduel","draftkings","caesars","bet365",PIN_KEY];
   const rows=books.map(book=>{
     const aO=g.awayOdds[book], hO=g.homeOdds[book];
     if(!aO&&!hO) return"";
@@ -2391,6 +2390,7 @@ function resetSliders(){
 
 function renderLog(){
   buildSliders(); // update slider ranges from current bet log
+  const wrap=document.getElementById("log-body-wrap");
   const empty=document.getElementById("log-empty");
   const summary=document.getElementById("log-summary");
   if(!wrap) return;
@@ -2757,7 +2757,7 @@ document.getElementById("btn-log-submit").addEventListener("click",()=>{
   saveState(STORAGE_LOG,betLog);
   renderLog();renderStats();renderActionBar();
   collapseLogForm();
-  document.getElementById("log-stake").value="";
+  document.getElementById("log-stake").value="5";
   document.getElementById("log-close").value="";
   document.getElementById("log-gametime").value="";
   document.getElementById("log-betedge").value="";
