@@ -48,6 +48,18 @@ button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-
 #today-label{color:var(--text3);font-size:9px;letter-spacing:1px;}
 #version-label{color:var(--text4);font-size:9px;letter-spacing:1px;}
 #req-display{font-size:9px;color:var(--text3);letter-spacing:1px;}
+#last-fetch-display{font-size:9px;color:var(--text4);letter-spacing:1px;}
+
+/* ── ACTION BAR ── */
+#action-bar{display:none;overflow-x:auto;white-space:nowrap;padding:8px 0;margin-bottom:10px;-webkit-overflow-scrolling:touch;}
+#action-bar::-webkit-scrollbar{display:none;}
+.action-pill{display:inline-flex;align-items:center;gap:5px;border-radius:20px;padding:5px 10px;font-size:9px;font-weight:700;letter-spacing:0.5px;margin-right:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);white-space:nowrap;cursor:default;transition:all 0.3s;}
+.action-pill-morning{border-color:var(--border);color:var(--text3);}
+.action-pill-morning.active{border-color:var(--amber);color:var(--amber);background:#1a1008;box-shadow:0 0 8px #fbbf2420;}
+.action-pill-approaching{border-color:var(--amber);color:var(--amber);background:#1a1008;animation:pulse 1.5s infinite;}
+.action-pill-now{border-color:var(--green);color:var(--green);background:#021a0e;box-shadow:0 0 10px #00e5a025;animation:pulse 1s infinite;}
+.action-pill-gone{border-color:var(--border);color:var(--text4);opacity:0.5;}
+.action-pill-dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
 #header-row2{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 #fetch-status{font-size:10px;letter-spacing:1px;display:none;flex:1;}
 #btn-fetch{background:var(--green);color:#000;}
@@ -416,8 +428,9 @@ button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-
         <span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span>
         <div id="header-meta">
           <span id="today-label"></span>
-          <span id="version-label">v2.1</span>
+          <span id="version-label">v2.2</span>
           <span id="req-display"></span>
+          <span id="last-fetch-display"></span>
         </div>
       </div>
       <div id="header-row2">
@@ -652,6 +665,9 @@ Quarter Kelly = Full Kelly × 0.25</div>
     </select>
   </div>
 
+  <!-- ACTION BAR: game windows for logged bets -->
+  <div id="action-bar"></div>
+
   <!-- TIER 1 -->
   <div class="tier-section">
     <div class="tier-header tier-header-t1" data-tier="t1">
@@ -824,6 +840,7 @@ const STORAGE_OPEN    = "mlb-v21-open";
 const STORAGE_OPPTY   = "mlb-v21-oppty";
 const STORAGE_TIMES   = "mlb-v21-times";
 const STORAGE_LAST_EXPORT = "mlb-last-export";
+const STORAGE_LAST_FETCH  = "mlb-last-fetch";
 
 const ODDS_API_KEY = "803403e631dec7840e8157415bb61979";
 const WORKER_URL   = "https://fangraphs-proxy-worker.mbaranowski89.workers.dev";
@@ -1253,10 +1270,14 @@ function buildScoreBody(g,bets,awayAbbr,homeAbbr,awayScore,homeScore,awayLeads,h
     const innings=ls.innings||[];
     const currentInn=ls.currentInning||0;
     const isFinal=g.status.abstractGameState==="Final";
-    if(innings.length>0){
-      const cols=innings.map((inn,i)=>`<th style="${(!isFinal&&i+1===currentInn)?"color:var(--amber)":""}">${inn.num}</th>`).join("");
-      const awayRuns=innings.map((inn,i)=>`<td class="${!isFinal&&i+1===currentInn?"current-inn":""}">${inn.away?.runs??""}</td>`).join("");
-      const homeRuns=innings.map((inn,i)=>`<td class="${!isFinal&&i+1===currentInn?"current-inn":""}">${inn.home?.runs??""}</td>`).join("");
+    if(innings.length>0||isFinal){
+      // Always show at least 9 innings; add extra columns if game goes to extras
+      const maxInn=Math.max(9, innings.length, currentInn);
+      const innCols=Array.from({length:maxInn},(_,i)=>i+1);
+      const cols=innCols.map(n=>`<th style="${(!isFinal&&n===currentInn)?"color:var(--amber)":""}">${n}</th>`).join("");
+      const getScore=(teamKey,n)=>{const inn=innings.find(x=>x.num===n);return inn?(inn[teamKey]?.runs??null):null;};
+      const awayRuns=innCols.map(n=>{const v=getScore("away",n);return`<td class="${!isFinal&&n===currentInn?"current-inn":""}">${v!==null?v:""}</td>`;}).join("");
+      const homeRuns=innCols.map(n=>{const v=getScore("home",n);return`<td class="${!isFinal&&n===currentInn?"current-inn":""}">${v!==null?v:""}</td>`;}).join("");
       lineScoreHTML=`<div class="line-score"><table class="line-score-table">
         <tr><th></th>${cols}<th>R</th><th>H</th><th>E</th></tr>
         <tr><td class="team-col">${esc(awayAbbr)}</td>${awayRuns}<td class="rhe">${ls.teams?.away?.runs??""}</td><td class="rhe">${ls.teams?.away?.hits??""}</td><td class="rhe">${ls.teams?.away?.errors??""}</td></tr>
@@ -1990,6 +2011,8 @@ async function fetchOdds(){
     const espnCount=Object.keys(espnLookup).length;
     const openCount=Object.keys(openLines).filter(k=>k.endsWith(date)).length;
     setStatus(`✓ ${games.length} games · ${pinCount} Pinnacle · ${openCount} open lines`,true);
+    localStorage.setItem(STORAGE_LAST_FETCH, new Date().toISOString());
+    updateLastFetchDisplay();
 
   }catch(err){
     setStatus("⚠ FAILED",false);
@@ -2239,7 +2262,7 @@ function renderLog(){
 
   wrap.innerHTML="";
   sorted.forEach(b=>{
-    const ri=betLog.indexOf(b);
+    const ri=betLog.findIndex(x=>x.id===b.id); // stable ID lookup
     let clvVal=null,clvHTML="—";
     if(b.closeOdds&&b.odds){
       const got=toImp(b.odds),close=toImp(b.closeOdds);
@@ -2536,7 +2559,7 @@ document.getElementById("btn-log-submit").addEventListener("click",()=>{
   }
   betLog.push(b);
   saveState(STORAGE_LOG,betLog);
-  renderLog();renderStats();
+  renderLog();renderStats();renderActionBar();
   document.getElementById("log-stake").value="";
   document.getElementById("log-close").value="";
   document.getElementById("log-gametime").value="";
@@ -2545,6 +2568,128 @@ document.getElementById("btn-log-submit").addEventListener("click",()=>{
   document.getElementById("log-lag").value="";
   document.getElementById("log-modelgap").value="";
 });
+
+// ---------------------------------------------------
+// LAST FETCH DISPLAY
+// ---------------------------------------------------
+function updateLastFetchDisplay(){
+  const el=document.getElementById("last-fetch-display");
+  if(!el) return;
+  const last=localStorage.getItem(STORAGE_LAST_FETCH);
+  if(!last){el.textContent="";return;}
+  const d=new Date(last);
+  const etH=(d.getUTCHours()-4+24)%24;
+  const etM=String(d.getUTCMinutes()).padStart(2,"0");
+  const ampm=etH>=12?"PM":"AM";
+  const h12=etH%12||12;
+  el.textContent=`FETCH ${h12}:${etM}${ampm}`;
+}
+
+// ---------------------------------------------------
+// ACTION BAR
+// ---------------------------------------------------
+let actionBarTimer=null;
+
+function renderActionBar(){
+  const bar=document.getElementById("action-bar");
+  if(!bar) return;
+  const date=getScoresDate();
+
+  // Find today's logged bets
+  const todayBets=betLog.filter(b=>b.date===date&&b.matchup);
+  if(!todayBets.length){bar.style.display="none";return;}
+
+  // Get unique games from bets
+  const seen=new Set();
+  const gameBets=[];
+  todayBets.forEach(b=>{
+    if(!seen.has(b.matchup)){seen.add(b.matchup);gameBets.push(b);}
+  });
+
+  const now=Date.now();
+  // ET hour for morning window check
+  const etHour=(new Date().getUTCHours()-4+24)%24;
+  const isMorning=etHour>=8&&etHour<9;
+
+  let html="";
+
+  // Morning fetch pill
+  const mornClass=isMorning?"action-pill action-pill-morning active":"action-pill action-pill-morning";
+  html+=`<span class="${mornClass}"><span class="action-pill-dot"></span>MORNING 8-9AM</span>`;
+
+  // One pill per unique game with a logged bet
+  gameBets.forEach(b=>{
+    const parts=(b.matchup||"").split("@").map(s=>s.trim());
+    if(parts.length<2) return;
+    const away=parts[0],home=parts[1];
+    const key=`${away}-${home}-${date}`;
+    const gameTime=gameStartTimes[key]||b.gameTime;
+    if(!gameTime) return;
+
+    const start=new Date(gameTime).getTime();
+    const minsToGame=Math.round((start-now)/60000);
+
+    // Format game time ET
+    const gt=new Date(gameTime);
+    const etH=(gt.getUTCHours()-4+24)%24;
+    const etM=String(gt.getUTCMinutes()).padStart(2,"0");
+    const ampm=etH>=12?"PM":"AM";
+    const h12=etH%12||12;
+    const timeStr=`${h12}:${etM}${ampm}`;
+
+    // Label: team bet @ opponent
+    const label=`${esc(b.team||b.matchup)} ${timeStr}`;
+
+    let pillClass="action-pill";
+    let dot="";
+    let prefix="";
+    if(minsToGame>60){
+      pillClass+=" action-pill-upcoming";
+    } else if(minsToGame>5){
+      pillClass+=" action-pill-approaching";
+      dot=`<span class="action-pill-dot"></span>`;
+      prefix=`⚡ `;
+    } else if(minsToGame>=-5){
+      pillClass+=" action-pill-now";
+      dot=`<span class="action-pill-dot"></span>`;
+      prefix=`🔴 `;
+    } else {
+      pillClass+=" action-pill-gone";
+      prefix="✓ ";
+    }
+    html+=`<span class="${pillClass}">${dot}${prefix}${label}</span>`;
+  });
+
+  bar.innerHTML=html;
+  bar.style.display="block";
+}
+
+function startActionBarTimer(){
+  if(actionBarTimer) clearInterval(actionBarTimer);
+  renderActionBar();
+  actionBarTimer=setInterval(renderActionBar,60000); // update every minute
+}
+
+// ---------------------------------------------------
+// SWIPE NAVIGATION
+// ---------------------------------------------------
+const TAB_ORDER=["analysis","scores","log","stats","glossary"];
+let swipeStartX=0,swipeStartY=0;
+
+document.addEventListener("touchstart",(e)=>{
+  swipeStartX=e.touches[0].clientX;
+  swipeStartY=e.touches[0].clientY;
+},{passive:true});
+
+document.addEventListener("touchend",(e)=>{
+  const dx=e.changedTouches[0].clientX-swipeStartX;
+  const dy=e.changedTouches[0].clientY-swipeStartY;
+  if(Math.abs(dx)<50||Math.abs(dx)<Math.abs(dy)*1.5) return; // too short or too vertical
+  const activeTab=document.querySelector(".nav-tab.active")?.dataset.tab;
+  const idx=TAB_ORDER.indexOf(activeTab);
+  if(dx<0&&idx<TAB_ORDER.length-1) switchTab(TAB_ORDER[idx+1]); // swipe left = next
+  if(dx>0&&idx>0) switchTab(TAB_ORDER[idx-1]); // swipe right = prev
+},{passive:true});
 
 // ---------------------------------------------------
 // EXPORT / IMPORT
@@ -2683,6 +2828,8 @@ function updateHeaderHeight(){
 updateHeaderHeight();
 window.addEventListener("resize", updateHeaderHeight);
 document.getElementById("btn-refresh-scores").addEventListener("click",fetchScores);
+updateLastFetchDisplay();
+startActionBarTimer();
 
 // Hamburger menu
 const hamburgerBtn=document.getElementById("btn-hamburger");
