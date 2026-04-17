@@ -33,7 +33,7 @@
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;min-height:100vh;padding-bottom:60px;}
-input,select{background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:8px 10px;font-size:13px;font-family:'JetBrains Mono',monospace;outline:none;width:100%;-webkit-appearance:none;}
+input,select{background:var(--bg3);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:8px 10px;font-size:16px;font-family:'JetBrains Mono',monospace;outline:none;width:100%;-webkit-appearance:none;}
 input:focus,select:focus{border-color:var(--border2);}
 select option{background:var(--bg3);}
 button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-radius:5px;font-weight:800;font-size:10px;letter-spacing:1px;padding:7px 12px;}
@@ -78,13 +78,22 @@ button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-
 /* ── PAGES ── */
 .page{display:none;max-width:700px;margin:0 auto;padding:12px 14px;}
 .page.active{display:block;}
+/* Ensure tier sections have scroll margin so sticky nav doesn't cover anchors */
+.tier-section{scroll-margin-top:var(--nav-bottom,97px);}
 
 /* ── CONTROLS BAR ── */
-#controls-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin-bottom:12px;}
+#controls-bar{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
 #controls-bar label{font-size:9px;color:var(--text3);letter-spacing:1.5px;white-space:nowrap;}
-#game-date{width:135px;flex-shrink:0;color-scheme:dark;}
+#game-date{width:150px;flex-shrink:0;color-scheme:dark;font-size:13px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 10px;}
 #bankroll-input{width:90px;flex-shrink:0;}
 #kelly-select{width:115px;}
+
+/* ── SIZING SETTINGS (stats page) ── */
+#sizing-settings{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:12px;}
+#sizing-settings-title{font-size:9px;color:var(--text3);letter-spacing:2px;margin-bottom:10px;}
+#sizing-settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.sizing-field label{font-size:9px;color:var(--text3);letter-spacing:1px;margin-bottom:4px;display:block;}
+.sizing-field input,.sizing-field select{font-size:16px;}
 
 /* ── STICKY TIER HEADERS ── */
 .tier-header{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;cursor:pointer;user-select:none;position:sticky;top:var(--nav-bottom,97px);z-index:10;}
@@ -359,7 +368,7 @@ button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-
 .score-bet-result-pending{color:var(--amber);font-weight:800;}
 
 /* ── EXPORT BANNER ── */
-#export-banner{display:none;background:#1a1008;border-bottom:1px solid #fbbf2433;padding:7px 14px;position:sticky;top:var(--nav-bottom,97px);z-index:18;}
+#export-banner{display:none;background:#1a1008;border-bottom:1px solid #fbbf2433;padding:7px 14px;position:sticky;top:calc(var(--header-h, 57px) + var(--nav-h, 44px));z-index:18;}
 #export-banner-inner{max-width:700px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:10px;}
 #export-banner-msg{font-size:9px;color:var(--amber);letter-spacing:0.5px;}
 #export-banner-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;}
@@ -428,7 +437,7 @@ button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-
         <span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span>
         <div id="header-meta">
           <span id="today-label"></span>
-          <span id="version-label">v2.2</span>
+          <span id="version-label">v2.6</span>
           <span id="req-display"></span>
           <span id="last-fetch-display"></span>
         </div>
@@ -655,14 +664,6 @@ Quarter Kelly = Full Kelly × 0.25</div>
   <div id="controls-bar">
     <label>DATE</label>
     <input id="game-date" type="date"/>
-    <label>BANKROLL $</label>
-    <input id="bankroll-input" type="number" placeholder="1000" min="0"/>
-    <label>KELLY</label>
-    <select id="kelly-select">
-      <option value="1">Full Kelly</option>
-      <option value="0.5" selected>Half Kelly</option>
-      <option value="0.25">Quarter Kelly</option>
-    </select>
   </div>
 
   <!-- ACTION BAR: game windows for logged bets -->
@@ -742,23 +743,28 @@ Quarter Kelly = Full Kelly × 0.25</div>
 <!-- ═══ BET LOG PAGE ═══ -->
 <div class="page" id="page-log">
   <div id="log-form">
-    <div class="log-title">LOG A BET</div>
-    <div class="form-grid">
-      <div class="form-field"><label>DATE</label><input type="date" id="log-date"/></div>
-      <div class="form-field"><label>MATCHUP</label><input type="text" id="log-matchup" placeholder="NYY @ BOS"/></div>
-      <div class="form-field"><label>TEAM BET</label><input type="text" id="log-team" placeholder="NYY"/></div>
-      <div class="form-field"><label>BOOK</label><input type="text" id="log-book" placeholder="FanDuel"/></div>
-      <div class="form-field"><label>ODDS</label><input type="number" id="log-odds" placeholder="-140"/></div>
-      <div class="form-field"><label>STAKE ($)</label><input type="number" id="log-stake" placeholder="50"/></div>
-      <div class="form-field"><label>PIN FAIR % (at bet)</label><input type="number" id="log-pinfair" placeholder="54.2" step="0.1"/></div>
-      <div class="form-field"><label>CLOSING LINE (opt.)</label><input type="number" id="log-close" placeholder="-155"/></div>
-      <div class="form-field"><label>GAME TIME ET (opt.)</label><input type="time" id="log-gametime" placeholder="07:05"/></div>
-      <div class="form-field"><label>BET EDGE % (auto)</label><input type="number" id="log-betedge" placeholder="3.2" step="0.1" readonly style="opacity:0.6;"/></div>
-      <div class="form-field"><label>STEAM % (auto)</label><input type="number" id="log-steam" placeholder="1.8" step="0.1" readonly style="opacity:0.6;"/></div>
-      <div class="form-field"><label>LAG WINDOW % (auto)</label><input type="number" id="log-lag" placeholder="78" step="1" readonly style="opacity:0.6;"/></div>
-      <div class="form-field"><label>MODEL GAP % (auto)</label><input type="number" id="log-modelgap" placeholder="1.6" step="0.1" readonly style="opacity:0.6;"/></div>
+    <div id="log-form-header" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;">
+      <div class="log-title" style="margin-bottom:0;">+ LOG A BET</div>
+      <span id="log-form-toggle" style="font-size:10px;color:var(--text3);">▶</span>
     </div>
-    <button class="btn-log-submit" id="btn-log-submit">+ LOG BET</button>
+    <div id="log-form-body" style="display:none;margin-top:10px;">
+      <div class="form-grid">
+        <div class="form-field"><label>DATE</label><input type="date" id="log-date"/></div>
+        <div class="form-field"><label>MATCHUP</label><input type="text" id="log-matchup" placeholder="NYY @ BOS"/></div>
+        <div class="form-field"><label>TEAM BET</label><input type="text" id="log-team" placeholder="NYY"/></div>
+        <div class="form-field"><label>BOOK</label><input type="text" id="log-book" placeholder="FanDuel"/></div>
+        <div class="form-field"><label>ODDS</label><input type="number" id="log-odds" placeholder="-140"/></div>
+        <div class="form-field"><label>STAKE ($)</label><input type="number" id="log-stake" placeholder="50"/></div>
+        <div class="form-field"><label>PIN FAIR % (at bet)</label><input type="number" id="log-pinfair" placeholder="54.2" step="0.1"/></div>
+        <div class="form-field"><label>CLOSING LINE (opt.)</label><input type="number" id="log-close" placeholder="-155"/></div>
+        <div class="form-field"><label>GAME TIME ET (opt.)</label><input type="time" id="log-gametime" placeholder="07:05"/></div>
+        <div class="form-field"><label>BET EDGE % (auto)</label><input type="number" id="log-betedge" placeholder="3.2" step="0.1" readonly style="opacity:0.6;"/></div>
+        <div class="form-field"><label>STEAM % (auto)</label><input type="number" id="log-steam" placeholder="1.8" step="0.1" readonly style="opacity:0.6;"/></div>
+        <div class="form-field"><label>LAG WINDOW % (auto)</label><input type="number" id="log-lag" placeholder="78" step="1" readonly style="opacity:0.6;"/></div>
+        <div class="form-field"><label>MODEL GAP % (auto)</label><input type="number" id="log-modelgap" placeholder="1.6" step="0.1" readonly style="opacity:0.6;"/></div>
+      </div>
+      <button class="btn-log-submit" id="btn-log-submit">+ LOG BET</button>
+    </div>
   </div>
   <div id="log-toolbar">
     <span id="log-count-label" style="font-size:9px;color:var(--text3);letter-spacing:1px;flex:1;"></span>
@@ -826,6 +832,25 @@ Quarter Kelly = Full Kelly × 0.25</div>
     <div style="font-size:9px;color:#374151;margin-top:7px;line-height:1.6;">Consistently beating the closing line is the strongest indicator of a real edge.</div>
   </div>
   <div id="stats-empty" class="empty-state">LOG BETS TO SEE STATS</div>
+
+  <!-- SIZING SETTINGS -->
+  <div id="sizing-settings">
+    <div id="sizing-settings-title">SIZING SETTINGS</div>
+    <div id="sizing-settings-grid">
+      <div class="sizing-field">
+        <label>BANKROLL ($)</label>
+        <input id="bankroll-input" type="number" placeholder="1000" min="0"/>
+      </div>
+      <div class="sizing-field">
+        <label>KELLY FRACTION</label>
+        <select id="kelly-select">
+          <option value="1">Full Kelly</option>
+          <option value="0.5" selected>Half Kelly</option>
+          <option value="0.25">Quarter Kelly</option>
+        </select>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1842,6 +1867,9 @@ function buildBetCard(g, s, fair, openFair, frac, bank, tier){
         }
       }
       switchTab("log");
+      expandLogForm();
+      // Scroll to top of page so form is visible
+      window.scrollTo({top:0,behavior:"smooth"});
     });
   }
 
@@ -2409,12 +2437,29 @@ function renderStats(){
 // ---------------------------------------------------
 // TAB NAV + EVENTS
 // ---------------------------------------------------
+function collapseLogForm(){
+  const body=document.getElementById("log-form-body");
+  const toggle=document.getElementById("log-form-toggle");
+  if(body){body.style.display="none";}
+  if(toggle){toggle.textContent="▶";}
+}
+
+function expandLogForm(){
+  const body=document.getElementById("log-form-body");
+  const toggle=document.getElementById("log-form-toggle");
+  if(body){body.style.display="block";}
+  if(toggle){toggle.textContent="▼";}
+}
+
 function switchTab(tab){
   document.querySelectorAll(".nav-tab").forEach(t=>t.classList.toggle("active",t.dataset.tab===tab));
   document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id===`page-${tab}`));
   if(tab==="log") renderLog();
   if(tab==="stats") renderStats();
   if(tab==="scores"&&!scoresData.length) fetchScores();
+  if(tab==="analysis") renderAnalysis();
+  // Collapse log form whenever navigating away
+  if(tab!=="log") collapseLogForm();
 }
 document.querySelectorAll(".nav-tab").forEach(t=>t.addEventListener("click",()=>switchTab(t.dataset.tab)));
 
@@ -2560,6 +2605,7 @@ document.getElementById("btn-log-submit").addEventListener("click",()=>{
   betLog.push(b);
   saveState(STORAGE_LOG,betLog);
   renderLog();renderStats();renderActionBar();
+  collapseLogForm();
   document.getElementById("log-stake").value="";
   document.getElementById("log-close").value="";
   document.getElementById("log-gametime").value="";
@@ -2772,16 +2818,12 @@ function checkExportReminder(){
 function showBanner(msg){
   document.getElementById("export-banner-msg").textContent="⚠ "+msg;
   document.getElementById("export-banner").style.display="block";
-  // Update nav offset so pages don't get hidden behind banner
-  requestAnimationFrame(()=>{
-    const navBottom=document.getElementById("nav").getBoundingClientRect().bottom+
-                    document.getElementById("export-banner").offsetHeight;
-    document.documentElement.style.setProperty("--nav-bottom",navBottom+"px");
-  });
+  requestAnimationFrame(updateHeaderHeight);
 }
 
 function hideBanner(){
   document.getElementById("export-banner").style.display="none";
+  requestAnimationFrame(updateHeaderHeight);
 }
 
 // ---------------------------------------------------
@@ -2822,11 +2864,20 @@ document.getElementById("today-label").textContent=
 
 // Keep nav stuck right below header by measuring header height
 function updateHeaderHeight(){
-  const h=document.getElementById("header").offsetHeight;
-  document.documentElement.style.setProperty("--header-h", h+"px");
+  const headerH=document.getElementById("header").offsetHeight;
+  const navH=document.getElementById("nav").offsetHeight;
+  const bannerH=document.getElementById("export-banner").offsetHeight||0;
+  const navBottom=headerH+navH+bannerH;
+  document.documentElement.style.setProperty("--header-h", headerH+"px");
+  document.documentElement.style.setProperty("--nav-h", navH+"px");
+  document.documentElement.style.setProperty("--nav-bottom", navBottom+"px");
 }
 updateHeaderHeight();
 window.addEventListener("resize", updateHeaderHeight);
+document.fonts.ready.then(updateHeaderHeight);
+requestAnimationFrame(()=>requestAnimationFrame(updateHeaderHeight));
+// Re-measure once after a short delay to catch any late layout shifts
+setTimeout(updateHeaderHeight, 300);
 document.getElementById("btn-refresh-scores").addEventListener("click",fetchScores);
 updateLastFetchDisplay();
 startActionBarTimer();
@@ -2844,6 +2895,13 @@ document.getElementById("btn-import-menu").querySelector("input").addEventListen
 document.getElementById("btn-clear-menu").addEventListener("click",()=>{
   hamburgerMenu.style.display="none";
   document.getElementById("clear-confirm").style.display="flex";
+});
+
+// Log form toggle
+document.getElementById("log-form-header").addEventListener("click",()=>{
+  const body=document.getElementById("log-form-body");
+  const isOpen=body.style.display!=="none";
+  if(isOpen) collapseLogForm(); else expandLogForm();
 });
 
 // Filter panel toggle
