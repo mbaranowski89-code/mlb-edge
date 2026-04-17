@@ -449,7 +449,7 @@ button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-
         <span id="logo">MLB EDGE</span><span id="logo-sub">ANALYZER</span>
         <div id="header-meta">
           <span id="today-label"></span>
-          <span id="version-label">v3.0</span>
+          <span id="version-label">v3.4</span>
           <span id="req-display"></span>
           <span id="last-fetch-display"></span>
         </div>
@@ -512,163 +512,7 @@ button{font-family:'JetBrains Mono',monospace;cursor:pointer;border:none;border-
   <div id="scores-body"></div>
 </div>
 
-<!-- ═══ GLOSSARY PAGE ═══ -->
-<div class="page" id="page-glossary">
 
-  <!-- SCORECARD METRICS -->
-  <div class="glossary-section">
-    <div class="glossary-section-title">SCORECARD METRICS</div>
-
-    <div class="glossary-entry">
-      <div class="glossary-term">STEAM %</div>
-      <div class="glossary-def">How much Pinnacle's vig-removed fair probability moved toward this team since the opening line was set. Positive means sharp (professional) money bet this team, forcing Pinnacle to adjust. This is the primary signal — sharp money found value here first.</div>
-      <div class="glossary-formula">Steam = Pinnacle current fair − Pinnacle opening fair</div>
-      <div class="glossary-range">
-        <div class="glossary-range-row"><div class="gr-dot" style="background:#ef4444"></div><span class="gr-label">0–1.4% — Weak, below threshold</span></div>
-        <div class="glossary-range-row"><div class="gr-dot" style="background:#f59e0b"></div><span class="gr-label">1.5–2.9% — Meaningful steam</span></div>
-        <div class="glossary-range-row"><div class="gr-dot" style="background:#22c55e"></div><span class="gr-label">3%+ — Significant sharp action</span></div>
-      </div>
-    </div>
-
-    <div class="glossary-entry">
-      <div class="glossary-term">LAG WINDOW %</div>
-      <div class="glossary-def">How much of the retail pricing opportunity created by Pinnacle's steam move is still open and exploitable. When Pinnacle moves, retail books take time to catch up. This measures what percentage of that gap remains. Only meaningful when steam exists.</div>
-      <div class="glossary-formula">Lag Window = (Retail vig-removed fair − Pinnacle current fair) ÷ Steam shift × 100</div>
-      <div class="glossary-range">
-        <div class="glossary-range-row"><div class="gr-dot" style="background:#ef4444"></div><span class="gr-label">0–24% — Nearly closed, likely too late</span></div>
-        <div class="glossary-range-row"><div class="gr-dot" style="background:#f59e0b"></div><span class="gr-label">25–59% — Closing, act soon</span></div>
-        <div class="glossary-range-row"><div class="gr-dot" style="background:#22c55e"></div><span class="gr-label">60–100% — Wide open</span></div>
-      </div>
-    </div>
-
-    <div class="glossary-entry">
-      <div class="glossary-term">MODEL GAP %</div>
-      <div class="glossary-def">How far behind the retail book's probability model is vs Pinnacle's, with vig removed from both sides first. Positive means retail is behind Pinnacle — their model hasn't caught up to where sharp money has moved the true probability. This is good for you. Negative means retail is ahead of Pinnacle — they've overpriced this team.</div>
-      <div class="glossary-formula">Model Gap = Pinnacle vig-removed fair − Retail vig-removed fair</div>
-      <div class="glossary-range">
-        <div class="glossary-range-row"><div class="gr-dot" style="background:#ef4444"></div><span class="gr-label">Negative — Retail ahead of Pinnacle (bad)</span></div>
-        <div class="glossary-range-row"><div class="gr-dot" style="background:#f59e0b"></div><span class="gr-label">0–1.9% — Retail slightly behind</span></div>
-        <div class="glossary-range-row"><div class="gr-dot" style="background:#22c55e"></div><span class="gr-label">2%+ — Retail meaningfully behind Pinnacle</span></div>
-      </div>
-    </div>
-
-    <div class="glossary-entry">
-      <div class="glossary-term">BET EDGE %</div>
-      <div class="glossary-def">Direct profitability of the bet assuming Pinnacle's fair probability is correct. Compares Pinnacle's vig-removed fair against your break-even probability at the retail price. Positive means the bet is profitable if Pinnacle is right. This is the primary gate for betting decisions.</div>
-      <div class="glossary-formula">Bet Edge = Pinnacle vig-removed fair − Break-even at retail odds
-Break-even = |odds| ÷ (|odds| + 100)  [for favorites]
-Break-even = 100 ÷ (odds + 100)  [for underdogs]</div>
-      <div class="glossary-range">
-        <div class="glossary-range-row"><div class="gr-dot" style="background:#ef4444"></div><span class="gr-label">Below 0% — Not profitable, pass</span></div>
-        <div class="glossary-range-row"><div class="gr-dot" style="background:#f59e0b"></div><span class="gr-label">0–2.9% — Marginal, size down</span></div>
-        <div class="glossary-range-row"><div class="gr-dot" style="background:#22c55e"></div><span class="gr-label">3%+ — Meaningful edge, meets betting threshold</span></div>
-      </div>
-    </div>
-
-    <div class="glossary-entry">
-      <div class="glossary-term">ODDS GAP</div>
-      <div class="glossary-def">The best available retail odds vs Pinnacle's fair probability expressed as American odds (zero-vig equivalent). Shows the price difference in familiar betting terms. Positive means you're getting a better price than what Pinnacle would charge at zero vig.</div>
-      <div class="glossary-formula">Pinnacle fair odds = convert vig-removed fair probability back to American odds
-Odds Gap = Retail odds − Pinnacle fair odds</div>
-      <div class="glossary-range">
-        <div class="glossary-range-row"><div class="gr-dot" style="background:#ef4444"></div><span class="gr-label">0–4 pts — Minimal difference</span></div>
-        <div class="glossary-range-row"><div class="gr-dot" style="background:#f59e0b"></div><span class="gr-label">5–9 pts — Meaningful lag</span></div>
-        <div class="glossary-range-row"><div class="gr-dot" style="background:#22c55e"></div><span class="gr-label">10+ pts — Significant retail lag</span></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- TIER SYSTEM -->
-  <div class="glossary-section">
-    <div class="glossary-section-title">TIER SYSTEM</div>
-
-    <div class="glossary-entry">
-      <div class="glossary-term">🔥 TAKE — Tier 1</div>
-      <div class="glossary-def">All conditions met. This is the only tier you should actively bet. Act within the lag window — typically 15–60 minutes before retail books catch up.</div>
-      <div class="glossary-formula">BET EDGE ≥ 3%
-AND Steam ≥ 1.5% (sharp money confirmed direction)
-AND Lag window open (retail still behind)</div>
-    </div>
-
-    <div class="glossary-entry">
-      <div class="glossary-term">👀 WATCH — Tier 2</div>
-      <div class="glossary-def">Partial signal. The bet is profitable but lacks full confirmation. Monitor — if a Watch bet gains the missing signal on a later fetch it may upgrade to Take. If the window closes without upgrading, pass.</div>
-      <div class="glossary-formula">BET EDGE ≥ 0%
-AND (Steam ≥ 1.5% OR Model Gap positive)</div>
-    </div>
-
-    <div class="glossary-entry">
-      <div class="glossary-term">— PASS</div>
-      <div class="glossary-def">No action. Either the bet is not profitable at the current retail price (BET EDGE negative), steam went the wrong direction, or the retail window has closed. Shown for reference so you can see the full market picture.</div>
-    </div>
-
-    <div class="glossary-entry">
-      <div class="glossary-term">NO PINNACLE LINE YET</div>
-      <div class="glossary-def">Pinnacle hasn't posted a line for this game yet. No tier classification is possible without Pinnacle as a benchmark. Pinnacle typically posts MLB lines 8–11 PM ET the night before. Check back later or after your evening fetch.</div>
-    </div>
-  </div>
-
-  <!-- VIG & PROBABILITY -->
-  <div class="glossary-section">
-    <div class="glossary-section-title">VIG & PROBABILITY MATH</div>
-
-    <div class="glossary-entry">
-      <div class="glossary-term">WHAT IS VIG?</div>
-      <div class="glossary-def">The sportsbook's built-in profit margin. Both sides of a game are priced so the combined implied probabilities exceed 100%. The excess is vig. A standard -110/-110 line has ~4.76% vig. Pinnacle charges ~2–3% on MLB — the lowest of any major book, making their lines the most accurate reflection of true probability.</div>
-      <div class="glossary-formula">Vig = (Away implied + Home implied) − 100%
-Example: -110/-110 → 52.38% + 52.38% = 104.76% → Vig = 4.76%</div>
-    </div>
-
-    <div class="glossary-entry">
-      <div class="glossary-term">CONVERTING ODDS TO IMPLIED PROBABILITY</div>
-      <div class="glossary-def">American odds can be converted to the probability the book is implying for each outcome.</div>
-      <div class="glossary-formula">Favorite (negative odds):  |odds| ÷ (|odds| + 100)
-Example: -130 → 130 ÷ 230 = 56.52%
-
-Underdog (positive odds):  100 ÷ (odds + 100)
-Example: +110 → 100 ÷ 210 = 47.62%</div>
-    </div>
-
-    <div class="glossary-entry">
-      <div class="glossary-term">REMOVING THE VIG (ADDITIVE METHOD)</div>
-      <div class="glossary-def">Dividing each side's implied probability by the total removes the book's profit margin and gives the "true" probability each side wins according to that book's model.</div>
-      <div class="glossary-formula">Away fair = Away implied ÷ (Away implied + Home implied)
-Home fair = Home implied ÷ (Away implied + Home implied)
-
-Example: SF -115 / CIN +104
-SF implied = 115 ÷ 215 = 53.49%
-CIN implied = 100 ÷ 204 = 49.02%
-Total = 102.51%
-SF fair = 53.49 ÷ 102.51 = 52.18%
-CIN fair = 49.02 ÷ 102.51 = 47.82%</div>
-    </div>
-  </div>
-
-  <!-- CLV & STATS -->
-  <div class="glossary-section">
-    <div class="glossary-section-title">PERFORMANCE TRACKING</div>
-
-    <div class="glossary-entry">
-      <div class="glossary-term">CLOSING LINE VALUE (CLV)</div>
-      <div class="glossary-def">The odds you got vs the closing line (final odds before game start). Negative CLV means you got a better price than where the line closed — you beat the market. Consistently negative CLV over many bets is the strongest indicator of a real edge, more reliable than win rate over small samples.</div>
-      <div class="glossary-formula">CLV = Closing implied probability − Your implied probability
-Negative = you got the better price (good)</div>
-    </div>
-
-    <div class="glossary-entry">
-      <div class="glossary-term">KELLY SIZING</div>
-      <div class="glossary-def">Mathematically optimal bet size given your edge and bankroll. The app uses Quarter Kelly by default — this reduces variance significantly while preserving most of the mathematical advantage. Hard cap of $10 per bet is recommended until 100+ bets are logged.</div>
-      <div class="glossary-formula">Full Kelly = (Edge × Bankroll) ÷ Decimal odds
-Quarter Kelly = Full Kelly × 0.25</div>
-    </div>
-
-    <div class="glossary-entry">
-      <div class="glossary-term">WHY PINNACLE?</div>
-      <div class="glossary-def">Pinnacle accepts sharp (professional) bettors without limiting them. When their line is wrong, sharp bettors immediately correct it. This continuous pressure makes Pinnacle's closing line one of the most accurate probability estimates available — more accurate than ESPN's model, public consensus, or other retail books. Beating Pinnacle's closing line consistently means you're finding real edges.</div>
-    </div>
-  </div>
-
-</div>
 
 <!-- ═══ ANALYSIS PAGE ═══ -->
 <div class="page active" id="page-analysis">
@@ -866,6 +710,178 @@ Quarter Kelly = Full Kelly × 0.25</div>
       </div>
     </div>
   </div>
+</div>
+
+<!-- ═══ GLOSSARY PAGE ═══ -->
+<div class="page" id="page-glossary">
+
+  <!-- SCORECARD METRICS -->
+  <div class="glossary-section">
+    <div class="glossary-section-title">SCORECARD METRICS</div>
+
+    <div class="glossary-entry">
+      <div class="glossary-term">STEAM %</div>
+      <div class="glossary-def">How much Pinnacle's vig-removed fair probability moved toward this team since the opening line was set. Positive means sharp (professional) money bet this team, forcing Pinnacle to adjust. This is the primary signal — sharp money found value here first.</div>
+      <div class="glossary-formula">Steam = Pinnacle current fair − Pinnacle opening fair</div>
+      <div class="glossary-range">
+        <div class="glossary-range-row"><div class="gr-dot" style="background:#ef4444"></div><span class="gr-label">0–1.4% — Weak, minimal score contribution</span></div>
+        <div class="glossary-range-row"><div class="gr-dot" style="background:#f59e0b"></div><span class="gr-label">1.5–2.9% — Meaningful steam</span></div>
+        <div class="glossary-range-row"><div class="gr-dot" style="background:#22c55e"></div><span class="gr-label">3%+ — Significant sharp action · 3.5%+ = max score contribution (30 pts)</span></div>
+      </div>
+    </div>
+
+    <div class="glossary-entry">
+      <div class="glossary-term">LAG WINDOW %</div>
+      <div class="glossary-def">How much of the retail pricing opportunity created by Pinnacle's steam move is still open and exploitable. When Pinnacle moves, retail books take time to catch up. This measures what percentage of that gap remains. Only meaningful when steam exists.</div>
+      <div class="glossary-formula">Lag Window = (Retail vig-removed fair − Pinnacle current fair) ÷ Steam shift × 100</div>
+      <div class="glossary-range">
+        <div class="glossary-range-row"><div class="gr-dot" style="background:#ef4444"></div><span class="gr-label">0–24% — Nearly closed, likely too late</span></div>
+        <div class="glossary-range-row"><div class="gr-dot" style="background:#f59e0b"></div><span class="gr-label">25–59% — Closing, act soon</span></div>
+        <div class="glossary-range-row"><div class="gr-dot" style="background:#22c55e"></div><span class="gr-label">60–100% — Wide open</span></div>
+      </div>
+    </div>
+
+    <div class="glossary-entry">
+      <div class="glossary-term">MODEL GAP %</div>
+      <div class="glossary-def">How far behind the retail book's probability model is vs Pinnacle's, with vig removed from both sides first. Positive means retail is behind Pinnacle — their model hasn't caught up to where sharp money has moved the true probability. This is good for you. Negative means retail is ahead of Pinnacle — they've overpriced this team.</div>
+      <div class="glossary-formula">Model Gap = Pinnacle vig-removed fair − Retail vig-removed fair</div>
+      <div class="glossary-range">
+        <div class="glossary-range-row"><div class="gr-dot" style="background:#ef4444"></div><span class="gr-label">Negative — Retail ahead of Pinnacle (bad)</span></div>
+        <div class="glossary-range-row"><div class="gr-dot" style="background:#f59e0b"></div><span class="gr-label">0–1.9% — Retail slightly behind</span></div>
+        <div class="glossary-range-row"><div class="gr-dot" style="background:#22c55e"></div><span class="gr-label">2%+ — Retail meaningfully behind Pinnacle</span></div>
+      </div>
+    </div>
+
+    <div class="glossary-entry">
+      <div class="glossary-term">BET EDGE %</div>
+      <div class="glossary-def">Direct profitability of the bet assuming Pinnacle's fair probability is correct. Compares Pinnacle's vig-removed fair against your break-even probability at the retail price. Positive means the bet is profitable if Pinnacle is right.</div>
+      <div class="glossary-formula">Bet Edge = Pinnacle vig-removed fair − Break-even at retail odds
+Break-even = |odds| ÷ (|odds| + 100)  [for favorites]
+Break-even = 100 ÷ (odds + 100)  [for underdogs]</div>
+      <div class="glossary-range">
+        <div class="glossary-range-row"><div class="gr-dot" style="background:#ef4444"></div><span class="gr-label">Negative — Not profitable at retail price</span></div>
+        <div class="glossary-range-row"><div class="gr-dot" style="background:#f59e0b"></div><span class="gr-label">0–1.9% — Marginal edge</span></div>
+        <div class="glossary-range-row"><div class="gr-dot" style="background:#22c55e"></div><span class="gr-label">2%+ — Good edge · 3%+ = max score contribution (40 pts)</span></div>
+      </div>
+    </div>
+
+    <div class="glossary-entry">
+      <div class="glossary-term">ODDS GAP</div>
+      <div class="glossary-def">The best available retail odds vs Pinnacle's fair probability expressed as American odds (zero-vig equivalent). Shows the price difference in familiar betting terms. Positive means you're getting a better price than what Pinnacle would charge at zero vig.</div>
+      <div class="glossary-formula">Pinnacle fair odds = convert vig-removed fair probability back to American odds
+Odds Gap = Retail odds − Pinnacle fair odds</div>
+      <div class="glossary-range">
+        <div class="glossary-range-row"><div class="gr-dot" style="background:#ef4444"></div><span class="gr-label">0–4 pts — Minimal difference</span></div>
+        <div class="glossary-range-row"><div class="gr-dot" style="background:#f59e0b"></div><span class="gr-label">5–9 pts — Meaningful lag</span></div>
+        <div class="glossary-range-row"><div class="gr-dot" style="background:#22c55e"></div><span class="gr-label">10+ pts — Significant retail lag</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TIER SYSTEM -->
+  <div class="glossary-section">
+    <div class="glossary-section-title">TIER SYSTEM</div>
+
+    <div class="glossary-entry">
+      <div class="glossary-term">COMPOSITE SCORE (0–100)</div>
+      <div class="glossary-def">A single number summarising all four signals. Tiers are assigned directly from this score. Higher is better — a score of 50+ means multiple signals are aligning simultaneously.</div>
+      <div class="glossary-formula">Score = BET EDGE pts + STEAM pts + LAG pts + MODEL GAP pts
+
+BET EDGE:   0–40 pts  (3% edge = max)
+STEAM:      0–30 pts  (3.5% steam = max)
+LAG WINDOW: 0–20 pts  (100% open = max)
+MODEL GAP:  0–10 pts  (3% gap = max)</div>
+      <div class="glossary-range">
+        <div class="glossary-range-row"><div class="gr-dot" style="background:#f87171"></div><span class="gr-label">0–24 — Poor, no meaningful edge</span></div>
+        <div class="glossary-range-row"><div class="gr-dot" style="background:#fb923c"></div><span class="gr-label">25–49 — WATCH: partial signal</span></div>
+        <div class="glossary-range-row"><div class="gr-dot" style="background:#00e5a0"></div><span class="gr-label">50–100 — TAKE: strong multi-signal alignment</span></div>
+      </div>
+    </div>
+
+    <div class="glossary-entry">
+      <div class="glossary-term">🔥 TAKE — Tier 1</div>
+      <div class="glossary-def">Composite score ≥ 50. Multiple signals aligning — strong bet edge, meaningful steam, and lag window still open. This is the primary betting tier. Act within the lag window before retail books catch up.</div>
+      <div class="glossary-formula">Composite Score ≥ 50</div>
+    </div>
+
+    <div class="glossary-entry">
+      <div class="glossary-term">👀 WATCH — Tier 2</div>
+      <div class="glossary-def">Composite score 25–49. Partial signal — some edge or steam present but not enough for full conviction. Monitor for upgrades on later fetches. If the window closes without upgrading, pass.</div>
+      <div class="glossary-formula">Composite Score 25–49</div>
+    </div>
+
+    <div class="glossary-entry">
+      <div class="glossary-term">— PASS</div>
+      <div class="glossary-def">Composite score below 25. Signals are weak or negative. No action warranted.</div>
+      <div class="glossary-formula">Composite Score &lt; 25</div>
+    </div>
+
+    <div class="glossary-entry">
+      <div class="glossary-term">NO PINNACLE LINE YET</div>
+      <div class="glossary-def">Pinnacle hasn't posted a line for this game yet. No tier classification is possible without Pinnacle as a benchmark. Pinnacle typically posts MLB lines 8–11 PM ET the night before. Check back later or after your evening fetch.</div>
+    </div>
+  </div>
+
+  <!-- VIG & PROBABILITY -->
+  <div class="glossary-section">
+    <div class="glossary-section-title">VIG & PROBABILITY MATH</div>
+
+    <div class="glossary-entry">
+      <div class="glossary-term">WHAT IS VIG?</div>
+      <div class="glossary-def">The sportsbook's built-in profit margin. Both sides of a game are priced so the combined implied probabilities exceed 100%. The excess is vig. A standard -110/-110 line has ~4.76% vig. Pinnacle charges ~2–3% on MLB — the lowest of any major book, making their lines the most accurate reflection of true probability.</div>
+      <div class="glossary-formula">Vig = (Away implied + Home implied) − 100%
+Example: -110/-110 → 52.38% + 52.38% = 104.76% → Vig = 4.76%</div>
+    </div>
+
+    <div class="glossary-entry">
+      <div class="glossary-term">CONVERTING ODDS TO IMPLIED PROBABILITY</div>
+      <div class="glossary-def">American odds can be converted to the probability the book is implying for each outcome.</div>
+      <div class="glossary-formula">Favorite (negative odds):  |odds| ÷ (|odds| + 100)
+Example: -130 → 130 ÷ 230 = 56.52%
+
+Underdog (positive odds):  100 ÷ (odds + 100)
+Example: +110 → 100 ÷ 210 = 47.62%</div>
+    </div>
+
+    <div class="glossary-entry">
+      <div class="glossary-term">REMOVING THE VIG (ADDITIVE METHOD)</div>
+      <div class="glossary-def">Dividing each side's implied probability by the total removes the book's profit margin and gives the "true" probability each side wins according to that book's model.</div>
+      <div class="glossary-formula">Away fair = Away implied ÷ (Away implied + Home implied)
+Home fair = Home implied ÷ (Away implied + Home implied)
+
+Example: SF -115 / CIN +104
+SF implied = 115 ÷ 215 = 53.49%
+CIN implied = 100 ÷ 204 = 49.02%
+Total = 102.51%
+SF fair = 53.49 ÷ 102.51 = 52.18%
+CIN fair = 49.02 ÷ 102.51 = 47.82%</div>
+    </div>
+  </div>
+
+  <!-- CLV & STATS -->
+  <div class="glossary-section">
+    <div class="glossary-section-title">PERFORMANCE TRACKING</div>
+
+    <div class="glossary-entry">
+      <div class="glossary-term">CLOSING LINE VALUE (CLV)</div>
+      <div class="glossary-def">The odds you got vs the closing line (final odds before game start). Negative CLV means you got a better price than where the line closed — you beat the market. Consistently negative CLV over many bets is the strongest indicator of a real edge, more reliable than win rate over small samples.</div>
+      <div class="glossary-formula">CLV = Closing implied probability − Your implied probability
+Negative = you got the better price (good)</div>
+    </div>
+
+    <div class="glossary-entry">
+      <div class="glossary-term">KELLY SIZING</div>
+      <div class="glossary-def">Mathematically optimal bet size given your edge and bankroll. The app uses Quarter Kelly by default — this reduces variance significantly while preserving most of the mathematical advantage. Hard cap of $10 per bet is recommended until 100+ bets are logged.</div>
+      <div class="glossary-formula">Full Kelly = (Edge × Bankroll) ÷ Decimal odds
+Quarter Kelly = Full Kelly × 0.25</div>
+    </div>
+
+    <div class="glossary-entry">
+      <div class="glossary-term">WHY PINNACLE?</div>
+      <div class="glossary-def">Pinnacle accepts sharp (professional) bettors without limiting them. When their line is wrong, sharp bettors immediately correct it. This continuous pressure makes Pinnacle's closing line one of the most accurate probability estimates available — more accurate than ESPN's model, public consensus, or other retail books. Beating Pinnacle's closing line consistently means you're finding real edges.</div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -2214,21 +2230,24 @@ function applyLogFilters(log){
       const r=b.result||"pending";
       if(!logFilters.results.has(r)) return false;
     }
-    // Slider range filters
-    const rng=(field,val)=>{
-      const st=sliderState[field];
-      if(!st||val===null||val===undefined||val==="") return true;
-      if(st.min!==null&&val<st.min) return false;
-      if(st.max!==null&&val>st.max) return false;
-      return true;
-    };
-    if(!rng("score",b.score!==null&&b.score!==undefined?b.score:null)) return false;
-    if(!rng("edge",b.betEdge!==undefined?parseFloat(b.betEdge):null)) return false;
-    if(!rng("steam",b.steam!==undefined?parseFloat(b.steam):null)) return false;
-    if(!rng("lag",b.lag!==undefined?parseFloat(b.lag):null)) return false;
-    if(!rng("model",b.modelGap!==undefined?parseFloat(b.modelGap):null)) return false;
-    if(!rng("odds",b.odds!==undefined?parseFloat(b.odds):null)) return false;
-    if(!rng("stake",b.stake!==undefined?parseFloat(b.stake):null)) return false;
+    // Slider range filters — only apply if slider panel has been opened and used
+    const panelOpen=document.getElementById("log-filter-panel")?.classList.contains("open");
+    if(panelOpen){
+      const rng=(field,val)=>{
+        const st=sliderState[field];
+        if(!st||val===null||val===undefined||val===""||isNaN(val)) return true;
+        if(st.min!==null&&val<st.min) return false;
+        if(st.max!==null&&val>st.max) return false;
+        return true;
+      };
+      if(!rng("score",b.score!==null&&b.score!==undefined?b.score:null)) return false;
+      if(!rng("edge",b.betEdge!==undefined&&b.betEdge!==""?parseFloat(b.betEdge):null)) return false;
+      if(!rng("steam",b.steam!==undefined&&b.steam!==""?parseFloat(b.steam):null)) return false;
+      if(!rng("lag",b.lag!==undefined&&b.lag!==""?parseFloat(b.lag):null)) return false;
+      if(!rng("model",b.modelGap!==undefined&&b.modelGap!==""?parseFloat(b.modelGap):null)) return false;
+      if(!rng("odds",b.odds!==undefined&&b.odds!==""?parseFloat(b.odds):null)) return false;
+      if(!rng("stake",b.stake!==undefined&&b.stake!==""?parseFloat(b.stake):null)) return false;
+    }
     const fd=document.getElementById("fr-date-from");
     const td=document.getElementById("fr-date-to");
     if(fd&&fd.value&&b.date&&b.date<fd.value) return false;
@@ -2261,10 +2280,13 @@ function sortLog(log){
 
 function countActiveFilters(){
   let n=logFilters.tiers.size+logFilters.results.size;
-  SLIDER_FIELDS.forEach(f=>{
-    const st=sliderState[f];
-    if(st&&(st.min!==null||st.max!==null)) n++;
-  });
+  const panelOpen=document.getElementById("log-filter-panel")?.classList.contains("open");
+  if(panelOpen){
+    SLIDER_FIELDS.forEach(f=>{
+      const st=sliderState[f];
+      if(st&&(st.min!==null||st.max!==null)) n++;
+    });
+  }
   const fd=document.getElementById("fr-date-from");
   const td=document.getElementById("fr-date-to");
   if(fd&&fd.value!=="") n++;
